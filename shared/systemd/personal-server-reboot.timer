@@ -1,8 +1,10 @@
 [Unit]
-Description=personal-server scheduled full reboot (Sunday 04:00)
+Description=personal-server scheduled full reboot (Monday 04:00)
 
 [Timer]
-OnCalendar=Sun *-*-* 04:00:00
+# Sequenced after the 03:00 update wave (bootc + watchtower + incus
+# templates) so the reboot picks up everything that landed during the hour.
+OnCalendar=Mon *-*-* 04:00:00
 Persistent=true
 AccuracySec=1min
 Unit=personal-server-reboot.service

@@ -23,8 +23,9 @@ write_files:
         "origin=Debian,codename=${distro_codename},label=Debian-Security";
         "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
       };
-      Unattended-Upgrade::Automatic-Reboot "true";
-      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+      // No in-instance reboot — the host reboots Mon 04:00 and takes
+      // every Incus instance with it, no need for a second reboot.
+      Unattended-Upgrade::Automatic-Reboot "false";
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
 runcmd:
   - [systemctl, enable, --now, unattended-upgrades.service]

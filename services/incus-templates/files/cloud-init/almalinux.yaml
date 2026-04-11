@@ -16,8 +16,10 @@ write_files:
       network_online_timeout = 60
       download_updates = yes
       apply_updates = yes
-      reboot = when-needed
-      reboot_command = "shutdown -r +5 'Rebooting after dnf-automatic'"
+      # No in-instance reboot — the host reboots Mon 04:00 and takes
+      # every Incus instance with it, no need to add a second reboot
+      # storm an hour earlier.
+      reboot = never
       [emitters]
       emit_via = stdio
       [base]

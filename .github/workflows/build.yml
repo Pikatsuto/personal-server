@@ -4,9 +4,11 @@ on:
   push:
     branches: [main, dev]
   schedule:
-    # Weekly prod rebuild Sunday 02:00 UTC to pick up upstream version bumps
-    # (AlmaLinux bootc, ZFS kmod, Incus COPR, Pangolin/Coolify/Docker/etc.).
-    - cron: '0 2 * * 0'
+    # Sunday 23:00 UTC = right before the host's Monday 03:00 update wave.
+    # Build typically takes 6 minutes, plus margin for ghcr push, so the
+    # new image is reliably available on the registry by 23:30 UTC,
+    # leaving ~3-4h before bootc-fetch-apply-updates fires on the host.
+    - cron: '0 23 * * 0'
   workflow_dispatch:
     inputs:
       mode:

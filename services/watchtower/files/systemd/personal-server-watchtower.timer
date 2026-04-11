@@ -1,8 +1,10 @@
 [Unit]
-Description=personal-server watchtower weekly run (Friday 04:00)
+Description=personal-server watchtower weekly run (Monday 03:00)
 
 [Timer]
-OnCalendar=Fri *-*-* 04:00:00
+# Aligned with the rest of the weekly update wave: 03:00 = update,
+# 04:00 = reboot.
+OnCalendar=Mon *-*-* 03:00:00
 Persistent=true
 AccuracySec=1min
 Unit=personal-server-watchtower.service
