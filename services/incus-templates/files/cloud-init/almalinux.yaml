@@ -1,0 +1,26 @@
+#cloud-config
+# Cloud-init user-data baked into the `auto-update-almalinux` Incus profile.
+# Any instance launched with this profile gets dnf-automatic enabled, which
+# downloads AND installs security updates daily without user intervention.
+package_update: true
+package_upgrade: true
+packages:
+  - dnf-automatic
+write_files:
+  - path: /etc/dnf/automatic.conf
+    permissions: '0644'
+    content: |
+      [commands]
+      upgrade_type = security
+      random_sleep = 300
+      network_online_timeout = 60
+      download_updates = yes
+      apply_updates = yes
+      reboot = when-needed
+      reboot_command = "shutdown -r +5 'Rebooting after dnf-automatic'"
+      [emitters]
+      emit_via = stdio
+      [base]
+      debuglevel = 1
+runcmd:
+  - [systemctl, enable, --now, dnf-automatic.timer]

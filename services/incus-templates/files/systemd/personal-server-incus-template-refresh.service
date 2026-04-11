@@ -1,0 +1,8 @@
+[Unit]
+Description=personal-server Incus template weekly refresh
+After=incus.service network-online.target
+Requires=incus.service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/personal-server/services/incus-templates/files/refresh.sh

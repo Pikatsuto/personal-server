@@ -4,15 +4,17 @@
 # bootstrap is interactive, the wizard's checklist tells the operator what to
 # do once Pangolin is up.
 #
-# Versions pinned 2026-04-11 from upstream releases:
-#   pangolin=1.17.0  gerbil=1.3.1  badger=v1.4.0  traefik=v3.6
+# Tag policy: :latest everywhere. A breaking upstream release means the
+# container fails to start on restart; data in ./config/ is left untouched,
+# the fix is a pinned rollback. Badger is the only exception — the Traefik
+# plugin loader refuses open-ended versions and insists on a real tag.
 set -euo pipefail
 
 PANGOLIN_DIR=/opt/personal-server/pangolin
 CONF_DIR=/etc/personal-server
 
-PS_PANGOLIN_VERSION=${PS_PANGOLIN_VERSION:-1.17.0}
-PS_GERBIL_VERSION=${PS_GERBIL_VERSION:-1.3.1}
+PS_PANGOLIN_VERSION=${PS_PANGOLIN_VERSION:-latest}
+PS_GERBIL_VERSION=${PS_GERBIL_VERSION:-latest}
 PS_BADGER_VERSION=${PS_BADGER_VERSION:-v1.4.0}
 
 PS_DOMAIN=$(yq -r '.domain' "$CONF_DIR/domain.yaml")

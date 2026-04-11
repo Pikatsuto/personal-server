@@ -1,0 +1,11 @@
+[Unit]
+Description=personal-server Incus template weekly refresh (Mon 04:00)
+
+[Timer]
+OnCalendar=Mon *-*-* 04:00:00
+Persistent=true
+AccuracySec=1min
+Unit=personal-server-incus-template-refresh.service
+
+[Install]
+WantedBy=timers.target

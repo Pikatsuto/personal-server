@@ -5,8 +5,16 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStartPre=-/usr/bin/docker pull containrrr/watchtower:latest
+# Active fork of containrrr/watchtower (containrrr's repo has been
+# unmaintained since 2024). The fork keeps the same flags and labels.
+ExecStartPre=-/usr/bin/docker pull nickfedor/watchtower:latest
+# Default mode: watchtower watches every running container and pulls a
+# fresh `:latest` (or whatever tag is in use) for each. Coolify's own
+# auto-updater and watchtower end up doing the same `pull + restart`
+# dance, which is idempotent — startup-time DB migrations in each app
+# are what actually upgrade state, not the updater that triggered the
+# restart. No labels needed, no exclusions needed.
 ExecStart=/usr/bin/docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  containrrr/watchtower:latest \
+  nickfedor/watchtower:latest \
   --run-once --cleanup

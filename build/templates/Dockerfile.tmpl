@@ -36,6 +36,7 @@ RUN set -eux; \
     chmod +x /etc/personal-server/first-boot/*.sh /usr/local/bin/*; \
     systemctl enable personal-server-firstboot.service; \
     systemctl enable personal-server-reboot.timer; \
+    systemctl enable bootc-fetch-apply-updates.timer; \
     install -d -m 0755 /etc/personal-server /var/log/personal-server; \
     [ -f /etc/personal-server/storage.yaml ] || echo '{}' | yq -P > /etc/personal-server/storage.yaml
 

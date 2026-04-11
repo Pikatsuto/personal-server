@@ -36,10 +36,14 @@ source "$COOLIFY_ROOT_FILE"
 docker network create coolify 2>/dev/null || true
 
 if [[ ! -f /data/coolify/source/.env ]]; then
+  # Coolify manages its own updates (DB schema migrations between versions
+  # need its own runner; watchtower would corrupt state). We therefore
+  # leave AUTOUPDATE=true and exclude Coolify's containers from watchtower
+  # via labels — see services/watchtower/files/systemd/.
   ROOT_USERNAME=$COOLIFY_ROOT_USERNAME \
   ROOT_USER_EMAIL=$COOLIFY_ROOT_USER_EMAIL \
   ROOT_USER_PASSWORD=$COOLIFY_ROOT_USER_PASSWORD \
-  AUTOUPDATE=false \
+  AUTOUPDATE=true \
     bash -c 'curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash'
 fi
 

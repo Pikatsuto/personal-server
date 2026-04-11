@@ -14,7 +14,7 @@ ExecStart=/usr/bin/docker run --rm --name personal-server-pocketid \
   -p 127.0.0.1:1411:1411 \
   -v /var/lib/personal-server/pocketid:/app/data \
   --env-file /etc/personal-server/pocketid.env \
-  ghcr.io/pocket-id/pocket-id:v2
+  ghcr.io/pocket-id/pocket-id:latest
 ExecStop=/usr/bin/docker stop personal-server-pocketid
 
 [Install]

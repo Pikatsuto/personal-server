@@ -1,9 +1,14 @@
 ---
 # AlmaLinux bootc (no official Rocky bootc exists — the community
 # rocky-bootc was archived 2025-04, its author migrated to AlmaLinux).
-# AlmaLinux 9 is binary-compatible with Rocky 9 (both rebuild RHEL).
-# Tag `9` is rolling; pin to `9.7` for reproducibility if needed.
-base_image: quay.io/almalinuxorg/almalinux-bootc:9
+# AlmaLinux is binary-compatible with Rocky (both rebuild RHEL).
+#
+# Tag `:latest` is intentional: this repo is an immutable image built by
+# GitHub Actions, so a breaking upstream bump shows up as a failed CI
+# build (email notification) and the bad image is never pushed to ghcr
+# — the running server keeps booting the last-known-good tag. The goal
+# of this whole project is zero-maintenance auto-bumps.
+base_image: quay.io/almalinuxorg/almalinux-bootc:latest
 # ZFS install needs a 3-step dance (release rpm → switch repo → install) that
 # yq can't express, so it lives in shared/lib/install-base.sh which is called
 # by the base-common stage in build/templates/Dockerfile.tmpl. Only the

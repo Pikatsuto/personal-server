@@ -29,6 +29,8 @@ services:
     image: docker.io/fosrl/gerbil:${PS_GERBIL_VERSION}
     container_name: gerbil
     restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     depends_on:
       pangolin:
         condition: service_healthy
@@ -53,7 +55,7 @@ services:
       - 80:80
 
   traefik:
-    image: docker.io/traefik:v3.6
+    image: docker.io/traefik:latest
     container_name: traefik
     restart: unless-stopped
     network_mode: service:gerbil

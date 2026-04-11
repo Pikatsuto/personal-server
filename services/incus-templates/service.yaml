@@ -1,0 +1,17 @@
+---
+name: incus-templates
+display_name: Incus templates
+description: Pre-downloads AlmaLinux + Debian LXC + VM templates from
+             images.linuxcontainers.org with auto-update enabled, plus
+             two cloud-init profiles that turn on unattended security
+             updates inside any instance launched from those templates.
+             A weekly systemd timer (Mon 04:00) refreshes the local copies.
+depends_on: [incus]
+build:
+  packages: []
+  install_script: install.sh
+runtime:
+  systemd_units:
+    - personal-server-incus-template-refresh.timer
+configure:
+  first_boot: configure.sh

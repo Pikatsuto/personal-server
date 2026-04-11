@@ -1,0 +1,30 @@
+#cloud-config
+# Cloud-init user-data baked into the `auto-update-debian` Incus profile.
+# Enables unattended-upgrades on Debian/Ubuntu instances so security
+# updates land automatically without user intervention.
+package_update: true
+package_upgrade: true
+packages:
+  - unattended-upgrades
+  - apt-listchanges
+write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    permissions: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "7";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/apt/apt.conf.d/52unattended-upgrades-local
+    permissions: '0644'
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+      };
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+runcmd:
+  - [systemctl, enable, --now, unattended-upgrades.service]
