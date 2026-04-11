@@ -1,0 +1,23 @@
+---
+name: pangolin
+display_name: Pangolin
+description: WireGuard VPN + Traefik reverse-proxy + identity-aware access control
+depends_on: [docker]
+build:
+  packages: []
+  install_script: install.sh
+storage:
+  data_path: /var/lib/personal-server/pangolin
+  pool_key: pangolin
+  default_dataset_name: pangolin
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - personal-server-pangolin.service
+  stop_cmd: systemctl stop personal-server-pangolin
+  start_cmd: systemctl start personal-server-pangolin
+  health:
+    type: http
+    url: http://localhost:3001/api/v1/healthz
+configure:
+  first_boot: configure.sh

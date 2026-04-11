@@ -1,0 +1,11 @@
+[Unit]
+Description=personal-server watchtower weekly run (Friday 04:00)
+
+[Timer]
+OnCalendar=Fri *-*-* 04:00:00
+Persistent=true
+AccuracySec=1min
+Unit=personal-server-watchtower.service
+
+[Install]
+WantedBy=timers.target

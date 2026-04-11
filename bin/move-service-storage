@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# move-service-storage <service> <pool>
+#
+# Migrates a service's data_path to a (different) ZFS pool, lossless,
+# reusable any time during the server's life. Generic — adding a new
+# service requires no changes here, only filling out the storage:
+# section in its service.yaml.
+#
+# Strategy:
+#   - Reads service.yaml from /etc/personal-server/services/<svc>/.
+#   - Stops service (runtime.stop_cmd).
+#   - If data_path is already on a zfs dataset → zfs send/recv to new pool.
+#   - Otherwise → rsync -aHAX from rootfs.
+#   - Sets dataset mountpoint to data_path, restarts service, healthcheck.
+#   - Updates /etc/personal-server/storage.yaml.
+#   - On success, prompts before destroying the source copy.
+
+set -euo pipefail
+
+LIB=/opt/personal-server/lib
+[[ -d $LIB ]] || LIB=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../shared/lib" && pwd)
+# shellcheck source=../shared/lib/yaml.sh
+source "$LIB/yaml.sh"
+# shellcheck source=../shared/lib/storage.sh
+source "$LIB/storage.sh"
+
+if (($# != 2)); then
+  echo "usage: $0 <service> <pool>" >&2
+  exit 2
+fi
+SVC=$1 POOL=$2
+
+CONF_DIR=/etc/personal-server
+YAML=$CONF_DIR/services/$SVC/service.yaml
+[[ -f $YAML ]] || { echo "move: $YAML not found" >&2; exit 1; }
+storage_pool_exists "$POOL" || { echo "move: pool '$POOL' not found" >&2; exit 1; }
+
+DATA_PATH=$(yaml_get "$YAML" '.storage.data_path')
+DATASET_NAME=$(yaml_get "$YAML" '.storage.default_dataset_name')
+STRATEGY=$(yaml_get "$YAML" '.storage.migration_strategy')
+STOP_CMD=$(yaml_get "$YAML" '.runtime.stop_cmd')
+START_CMD=$(yaml_get "$YAML" '.runtime.start_cmd')
+PRE_HOOK=$(yaml_get "$YAML" '.storage.pre_migrate_hook')
+POST_HOOK=$(yaml_get "$YAML" '.storage.post_migrate_hook')
+HEALTH_TYPE=$(yaml_get "$YAML" '.runtime.health.type')
+HEALTH_URL=$(yaml_get "$YAML" '.runtime.health.url')
+
+[[ -n $DATA_PATH ]]    || { echo "move: storage.data_path missing in $YAML" >&2; exit 1; }
+[[ -n $DATASET_NAME ]] || DATASET_NAME=$SVC
+STRATEGY=${STRATEGY:-zfs-or-rsync}
+[[ $STRATEGY == none ]] && { echo "move: $SVC declares migration_strategy=none, refusing" >&2; exit 1; }
+
+DST_DATASET="$POOL/personal-server/$DATASET_NAME"
+LOG_DIR=/var/log/personal-server
+mkdir -p "$LOG_DIR"
+LOG=$LOG_DIR/migrate-${SVC}-$(date -u +%Y%m%dT%H%M%SZ).log
+exec > >(tee -a "$LOG") 2>&1
+
+echo "move: service=$SVC pool=$POOL dataset=$DST_DATASET data_path=$DATA_PATH"
+
+run_hook() {
+  local hook=$1
+  [[ -z $hook ]] && return 0
+  local script=$CONF_DIR/services/$SVC/$hook
+  [[ -x $script ]] || return 0
+  echo "move: hook → $hook"; "$script"
+}
+
+healthcheck() {
+  case $HEALTH_TYPE in
+    http) curl -fsSk --max-time 10 "$HEALTH_URL" >/dev/null ;;
+    tcp)  bash -c "</dev/tcp/${HEALTH_URL#tcp://}" 2>/dev/null ;;
+    systemd) systemctl is-active --quiet "$1" ;;
+    exec) eval "$HEALTH_URL" ;;
+    *) return 0 ;;
+  esac
+}
+
+run_hook "$PRE_HOOK"
+
+if [[ -n $STOP_CMD ]]; then
+  echo "move: stopping service ($STOP_CMD)"
+  eval "$STOP_CMD"
+fi
+
+storage_create_dataset "$DST_DATASET" none
+
+if storage_is_zfs_dataset "$DATA_PATH"; then
+  SRC_DATASET=$(zfs list -H -o name "$DATA_PATH")
+  echo "move: source is zfs dataset $SRC_DATASET → zfs send/recv"
+  storage_zfs_send_recv "$SRC_DATASET" "$DST_DATASET" >/dev/null
+else
+  echo "move: source is plain dir → rsync"
+  TMP_MOUNT=$(mktemp -d)
+  zfs set "mountpoint=$TMP_MOUNT" "$DST_DATASET"
+  zfs mount "$DST_DATASET" 2>/dev/null || true
+  storage_rsync_copy "$DATA_PATH" "$TMP_MOUNT"
+  zfs umount "$DST_DATASET" 2>/dev/null || true
+  rmdir "$TMP_MOUNT" 2>/dev/null || true
+fi
+
+# Move the old data aside (don't delete yet) and bind to new dataset.
+BACKUP="${DATA_PATH}.pre-migrate.$(date -u +%s)"
+if [[ -e $DATA_PATH && ! -L $DATA_PATH ]]; then
+  mv "$DATA_PATH" "$BACKUP"
+fi
+mkdir -p "$DATA_PATH"
+zfs set "mountpoint=$DATA_PATH" "$DST_DATASET"
+zfs mount "$DST_DATASET" 2>/dev/null || true
+
+# Update storage.yaml
+install -d -m 0755 "$CONF_DIR"
+[[ -f $CONF_DIR/storage.yaml ]] || echo '{}' | yq -P > "$CONF_DIR/storage.yaml"
+yq -i ".\"$SVC\" = \"$DST_DATASET\"" "$CONF_DIR/storage.yaml"
+
+if [[ -n $START_CMD ]]; then
+  echo "move: starting service ($START_CMD)"
+  eval "$START_CMD"
+fi
+
+run_hook "$POST_HOOK"
+
+sleep 2
+if healthcheck "$SVC"; then
+  echo "move: healthcheck OK"
+  if [[ -e $BACKUP ]]; then
+    read -r -p "move: destroy old copy at $BACKUP? [y/N] " ans </dev/tty || ans=n
+    [[ $ans == y || $ans == Y ]] && rm -rf "$BACKUP"
+  fi
+else
+  echo "move: healthcheck FAILED — backup left at $BACKUP" >&2
+  exit 3
+fi
+
+echo "move: done. log=$LOG"

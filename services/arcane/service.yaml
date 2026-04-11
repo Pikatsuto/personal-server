@@ -1,0 +1,30 @@
+---
+name: arcane
+display_name: Arcane
+description: Web UI for Docker host management
+depends_on: [docker]
+build:
+  packages: []
+  install_script: install.sh
+storage:
+  data_path: /var/lib/personal-server/arcane
+  pool_key: arcane
+  default_dataset_name: arcane
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - personal-server-arcane.service
+  stop_cmd: systemctl stop personal-server-arcane
+  start_cmd: systemctl start personal-server-arcane
+  health:
+    type: http
+    url: http://localhost:3552
+sso:
+  type: proxy-auth
+pangolin:
+  resource_name: arcane
+  subdomain: docker
+  upstream: http://localhost:3552
+  auth: proxy-auth
+configure:
+  first_boot: configure.sh

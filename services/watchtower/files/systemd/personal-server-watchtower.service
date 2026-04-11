@@ -1,0 +1,12 @@
+[Unit]
+Description=personal-server watchtower one-shot run
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/bin/docker pull containrrr/watchtower:latest
+ExecStart=/usr/bin/docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  containrrr/watchtower:latest \
+  --run-once --cleanup

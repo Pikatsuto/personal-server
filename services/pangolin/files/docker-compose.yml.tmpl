@@ -1,0 +1,76 @@
+# Rendered into /opt/personal-server/pangolin/docker-compose.yml at first boot.
+# Source: github.com/fosrl/pangolin/install/config/docker-compose.yml (verified
+# 2026-04-11). Two intentional deviations from upstream:
+#   1. Network is named `coolify` (not `pangolin`) so the Pangolin Traefik can
+#      see and route Coolify-deployed apps without any compose-side glue.
+#   2. Traefik has Docker provider enabled in addition to the upstream HTTP+File
+#      providers, so it picks up `traefik.*` labels from Coolify apps.
+name: pangolin
+services:
+  pangolin:
+    image: docker.io/fosrl/pangolin:${PS_PANGOLIN_VERSION}
+    container_name: pangolin
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    volumes:
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/"]
+      interval: "10s"
+      timeout: "10s"
+      retries: 15
+
+  gerbil:
+    image: docker.io/fosrl/gerbil:${PS_GERBIL_VERSION}
+    container_name: gerbil
+    restart: unless-stopped
+    depends_on:
+      pangolin:
+        condition: service_healthy
+    command:
+      - --reachableAt=http://gerbil:3004
+      - --generateAndSaveKeyTo=/var/config/key
+      - --remoteConfig=http://pangolin:3001/api/v1/
+    volumes:
+      - ./config/:/var/config
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    extra_hosts:
+      # Lets the operator configure Pangolin resources whose upstream points
+      # at native host services (incus on :8443, webzfs on :26619, etc.).
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 51820:51820/udp
+      - 21820:21820/udp
+      - 443:443
+      - 443:443/udp
+      - 80:80
+
+  traefik:
+    image: docker.io/traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    network_mode: service:gerbil
+    depends_on:
+      pangolin:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik:/etc/traefik:ro
+      - ./config/letsencrypt:/letsencrypt
+      - ./config/traefik/logs:/var/log/traefik
+    env_file:
+      - ./acme.env
+    command:
+      - --configFile=/etc/traefik/traefik_config.yml
+
+networks:
+  default:
+    driver: bridge
+    name: coolify

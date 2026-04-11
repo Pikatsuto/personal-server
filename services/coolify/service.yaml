@@ -1,0 +1,34 @@
+---
+name: coolify
+display_name: Coolify
+description: Self-hosted PaaS. Its bundled Traefik is bypassed by joining the
+             shared `coolify` Docker network with the Pangolin Traefik, which
+             discovers Coolify-deployed apps via their auto-generated traefik.*
+             labels (Coolify's `generate_exact_labels=false` default emits
+             Traefik labels even when the server's proxy_type is `none`).
+depends_on: [docker, pangolin]
+build:
+  packages: []
+  install_script: install.sh
+storage:
+  data_path: /data/coolify
+  pool_key: coolify
+  default_dataset_name: coolify
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - personal-server-coolify.service
+  stop_cmd: systemctl stop personal-server-coolify
+  start_cmd: systemctl start personal-server-coolify
+  health:
+    type: http
+    url: http://localhost:8000
+sso:
+  type: oidc
+pangolin:
+  resource_name: coolify
+  subdomain: coolify
+  upstream: http://coolify:8080
+  auth: pocketid
+configure:
+  first_boot: configure.sh

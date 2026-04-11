@@ -1,0 +1,19 @@
+[Unit]
+Description=personal-server first-boot wizard
+After=network-online.target docker.service
+Wants=network-online.target
+ConditionPathExists=!/etc/personal-server/.configured
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal+console
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+ExecStart=/etc/personal-server/first-boot/wizard.sh
+
+[Install]
+WantedBy=multi-user.target

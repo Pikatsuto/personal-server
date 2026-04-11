@@ -1,0 +1,39 @@
+---
+name: webzfs
+display_name: WebZFS
+description: Web UI for ZFS pools, datasets, snapshots, SMART monitoring (FastAPI/HTMX, PAM auth)
+depends_on: []
+build:
+  packages:
+    # Native build deps for WebZFS — full list verified 2026-04-11 against
+    # github.com/webzfs/webzfs install_linux.sh.
+    - python3.11
+    - python3.11-devel
+    - python3.11-pip
+    - gcc
+    - make
+    - git
+    - rsync
+    - libsodium
+    - libsodium-devel
+    - pam-devel
+    - smartmontools
+    - shadow-utils
+  install_script: install.sh
+runtime:
+  systemd_units:
+    - webzfs.service
+  stop_cmd: systemctl stop webzfs
+  start_cmd: systemctl start webzfs
+  health:
+    type: http
+    url: http://localhost:26619
+sso:
+  type: proxy-auth
+pangolin:
+  resource_name: webzfs
+  subdomain: zfs
+  upstream: http://localhost:26619
+  auth: proxy-auth
+configure:
+  first_boot: configure.sh

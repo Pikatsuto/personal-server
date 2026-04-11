@@ -1,0 +1,34 @@
+---
+name: pocketid
+display_name: PocketID
+description: Lightweight passkey-based OIDC identity provider, used as IdP for Pangolin
+depends_on: [docker, pangolin]
+build:
+  packages: []
+  install_script: install.sh
+storage:
+  data_path: /var/lib/personal-server/pocketid
+  pool_key: pocketid
+  default_dataset_name: pocketid
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - personal-server-pocketid.service
+  stop_cmd: systemctl stop personal-server-pocketid
+  start_cmd: systemctl start personal-server-pocketid
+  health:
+    # Verified 2026-04-11 against the upstream docker-compose.yml at
+    # github.com/pocket-id/pocket-id — there is no HTTP /healthz endpoint;
+    # the official healthcheck is the embedded `/app/pocket-id healthcheck`
+    # binary. We invoke it via `docker exec`.
+    type: exec
+    url: docker exec personal-server-pocketid /app/pocket-id healthcheck
+sso:
+  type: none
+pangolin:
+  resource_name: pocketid
+  subdomain: pocketid
+  upstream: http://personal-server-pocketid:1411
+  auth: public
+configure:
+  first_boot: configure.sh

@@ -1,0 +1,41 @@
+---
+name: incus
+display_name: Incus
+description: LXC + KVM hypervisor (native COPR neelc/incus) with the canonical web UI
+             extracted from the Zabbly .deb (no RPM exists for the UI on EL9).
+depends_on: []
+build:
+  packages:
+    - incus
+    - incus-tools
+    - qemu-kvm
+    - libvirt-daemon-driver-qemu
+    - edk2-ovmf
+    - swtpm
+    - dpkg
+  copr_repos:
+    - neelc/incus
+  install_script: install.sh
+storage:
+  data_path: /var/lib/incus
+  pool_key: incus
+  default_dataset_name: incus
+  migration_strategy: zfs-or-rsync
+runtime:
+  systemd_units:
+    - incus.service
+    - incus.socket
+  stop_cmd: systemctl stop incus.service incus.socket
+  start_cmd: systemctl start incus.service incus.socket
+  health:
+    type: exec
+    url: incus info >/dev/null 2>&1
+sso:
+  type: proxy-auth
+pangolin:
+  resource_name: incus
+  subdomain: incus
+  upstream: https://localhost:8443
+  auth: proxy-auth
+configure:
+  first_boot: configure.sh

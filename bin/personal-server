@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# personal-server — top-level CLI wrapper.
+#
+# Subcommands:
+#   status              show installed services and runtime health
+#   list                list services known to this image
+#   move <svc> <pool>   shortcut for /usr/local/bin/move-service-storage
+#   reconfigure         re-run the first-boot wizard (removes the marker)
+#   build-report        cat /etc/personal-server/build-report.json
+#
+# Generic — never names a specific service.
+
+set -euo pipefail
+
+CONF_DIR=/etc/personal-server
+SERVICES_DIR=$CONF_DIR/services
+
+cmd=${1:-status}; shift || true
+
+list_services() {
+  for d in "$SERVICES_DIR"/*/; do
+    [[ -d $d ]] || continue
+    basename "${d%/}"
+  done
+}
+
+case $cmd in
+  list)
+    list_services
+    ;;
+  status)
+    printf '%-15s %-10s %s\n' SERVICE STATUS UNITS
+    for svc in $(list_services); do
+      yaml=$SERVICES_DIR/$svc/service.yaml
+      [[ -f $yaml ]] || continue
+      mapfile -t units < <(yq -r '.runtime.systemd_units // [] | .[]' "$yaml")
+      if (( ${#units[@]} == 0 )); then
+        printf '%-15s %-10s %s\n' "$svc" "n/a" "(no units)"
+        continue
+      fi
+      ok=1
+      for u in "${units[@]}"; do
+        systemctl is-active --quiet "$u" || ok=0
+      done
+      [[ $ok == 1 ]] && st=up || st=down
+      printf '%-15s %-10s %s\n' "$svc" "$st" "${units[*]}"
+    done
+    ;;
+  move)
+    exec /usr/local/bin/move-service-storage "$@"
+    ;;
+  reconfigure)
+    rm -f "$CONF_DIR/.configured"
+    systemctl start personal-server-firstboot.service
+    ;;
+  build-report)
+    cat "$CONF_DIR/build-report.json"
+    ;;
+  -h|--help|help)
+    sed -n '2,15p' "$0"
+    ;;
+  *)
+    echo "personal-server: unknown command '$cmd'" >&2
+    echo "try: personal-server help" >&2
+    exit 2
+    ;;
+esac

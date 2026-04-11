@@ -1,0 +1,31 @@
+---
+name: docker
+display_name: Docker Engine
+description: OCI runtime + CLI, data root movable to a chosen ZFS pool post-install
+depends_on: []
+build:
+  packages:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+  extra_repos:
+    - https://download.docker.com/linux/centos/docker-ce.repo
+  install_script: install.sh
+storage:
+  data_path: /var/lib/docker
+  pool_key: docker
+  default_dataset_name: docker
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - docker.service
+    - docker.socket
+  stop_cmd: systemctl stop docker.service docker.socket
+  start_cmd: systemctl start docker.service docker.socket
+  health:
+    type: exec
+    url: docker info >/dev/null 2>&1
+configure:
+  first_boot: configure.sh

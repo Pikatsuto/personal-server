@@ -1,0 +1,38 @@
+---
+# AlmaLinux bootc (no official Rocky bootc exists — the community
+# rocky-bootc was archived 2025-04, its author migrated to AlmaLinux).
+# AlmaLinux 9 is binary-compatible with Rocky 9 (both rebuild RHEL).
+# Tag `9` is rolling; pin to `9.7` for reproducibility if needed.
+base_image: quay.io/almalinuxorg/almalinux-bootc:9
+# ZFS install needs a 3-step dance (release rpm → switch repo → install) that
+# yq can't express, so it lives in shared/lib/install-base.sh which is called
+# by the base-common stage in build/templates/Dockerfile.tmpl. Only the
+# OS-distro packages live here.
+packages:
+  - bash
+  - curl
+  - jq
+  - rsync
+  - tar
+  - gzip
+  - xz
+  - ca-certificates
+  - openssl
+  - dnf-plugins-core
+  - gettext
+  - systemd
+  - cronie
+  - iproute
+  - iputils
+  - util-linux
+  - which
+  - findutils
+  - python3
+  - python3-pip
+copr_repos: []
+extra_repos: []
+binaries:
+  yq:
+    url: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+    target: /usr/local/bin/yq
+    mode: "0755"

@@ -1,0 +1,8 @@
+[Unit]
+Description=personal-server scheduled full reboot
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl reboot

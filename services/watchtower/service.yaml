@@ -1,0 +1,13 @@
+---
+name: watchtower
+display_name: Watchtower
+description: Auto-updates Docker containers (one-shot, weekly)
+depends_on: [docker]
+build:
+  packages: []
+  install_script: install.sh
+runtime:
+  systemd_units:
+    - personal-server-watchtower.timer
+configure:
+  first_boot: configure.sh

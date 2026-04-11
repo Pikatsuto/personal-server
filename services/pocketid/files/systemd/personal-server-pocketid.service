@@ -1,0 +1,21 @@
+[Unit]
+Description=PocketID OIDC identity provider
+After=docker.service personal-server-pangolin.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/personal-server/pocketid.env
+ExecStartPre=-/usr/bin/docker rm -f personal-server-pocketid
+ExecStart=/usr/bin/docker run --rm --name personal-server-pocketid \
+  --network coolify \
+  -p 127.0.0.1:1411:1411 \
+  -v /var/lib/personal-server/pocketid:/app/data \
+  --env-file /etc/personal-server/pocketid.env \
+  ghcr.io/pocket-id/pocket-id:v2
+ExecStop=/usr/bin/docker stop personal-server-pocketid
+
+[Install]
+WantedBy=multi-user.target
