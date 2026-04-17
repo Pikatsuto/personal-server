@@ -10,6 +10,7 @@ RestartSec=5s
 EnvironmentFile=/etc/personal-server/arcane.env
 ExecStartPre=-/usr/bin/docker rm -f personal-server-arcane
 ExecStart=/usr/bin/docker run --rm --name personal-server-arcane \
+  --label com.centurylinklabs.watchtower.enable=false \
   --network coolify \
   -p 127.0.0.1:3552:3552 \
   -e APP_URL=${APP_URL} \
@@ -19,7 +20,7 @@ ExecStart=/usr/bin/docker run --rm --name personal-server-arcane \
   -e PGID=${PGID} \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /var/lib/personal-server/arcane:/app/data \
-  ghcr.io/getarcaneapp/arcane:latest
+  ${IMAGE_ARCANE_REF}
 ExecStop=/usr/bin/docker stop personal-server-arcane
 
 [Install]

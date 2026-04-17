@@ -30,5 +30,19 @@ pangolin:
   subdomain: pocketid
   upstream: http://personal-server-pocketid:1411
   auth: public
+images:
+  pocketid:
+    repo: ghcr.io/pocket-id/pocket-id
+    digest: ""
+secrets:
+  - key: pocketid_encryption_key
+    generate: "openssl rand -base64 32"
+wizard:
+  questions:
+    - key: domain
+      prompt: "Root domain (e.g. home.example.com)"
+      required: true
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

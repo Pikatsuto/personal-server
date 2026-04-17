@@ -4,6 +4,11 @@
 # weekly refresh timer.
 set -euo pipefail
 
+# Incus client tries to mkdir $HOME on first run; inside a bootc container
+# /root already exists → "mkdir /root: file exists". Pre-create the config dir.
+export HOME=${HOME:-/root}
+mkdir -p "$HOME/.config/incus" 2>/dev/null || true
+
 ASSETS=/etc/personal-server/services/incus-templates/files
 CLOUD_INIT_DIR=$ASSETS/cloud-init
 
@@ -24,7 +29,7 @@ for entry in "${PROFILES[@]}"; do
   pname=$1; pfile=$2
   if ! incus profile show "$pname" >/dev/null 2>&1; then
     incus profile create "$pname" \
-      "description=Auto-apply security updates inside instances launched from this profile"
+      --description "Auto-apply security updates inside instances launched from this profile"
   fi
   incus profile set "$pname" user.user-data - < "$pfile"
 done

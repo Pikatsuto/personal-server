@@ -9,5 +9,11 @@ build:
 runtime:
   systemd_units:
     - personal-server-watchtower.timer
+images:
+  watchtower:
+    repo: docker.io/nickfedor/watchtower
+    digest: ""
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

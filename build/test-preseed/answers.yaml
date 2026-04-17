@@ -1,0 +1,3 @@
+domain: "ci-test.local"
+acme_email: "ci@example.invalid"
+acme_dns_provider: "manual"

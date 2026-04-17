@@ -18,7 +18,7 @@ CONF_DIR=/etc/personal-server
 SERVICES_DIR=$CONF_DIR/services
 CHECKLIST=$CONF_DIR/first-boot-checklist.txt
 
-DOMAIN=$(yq -r '.domain' "$CONF_DIR/domain.yaml")
+DOMAIN=$(yq -r '.domain' "$CONF_DIR/answers.yaml")
 
 install -d -m 0700 "$CONF_DIR"
 umask 077

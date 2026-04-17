@@ -10,11 +10,12 @@ RestartSec=5s
 EnvironmentFile=/etc/personal-server/pocketid.env
 ExecStartPre=-/usr/bin/docker rm -f personal-server-pocketid
 ExecStart=/usr/bin/docker run --rm --name personal-server-pocketid \
+  --label com.centurylinklabs.watchtower.enable=false \
   --network coolify \
   -p 127.0.0.1:1411:1411 \
   -v /var/lib/personal-server/pocketid:/app/data \
   --env-file /etc/personal-server/pocketid.env \
-  ghcr.io/pocket-id/pocket-id:latest
+  ${IMAGE_POCKETID_REF}
 ExecStop=/usr/bin/docker stop personal-server-pocketid
 
 [Install]

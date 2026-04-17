@@ -1,18 +1,16 @@
 [Unit]
 Description=personal-server first-boot wizard
-After=network-online.target docker.service
+After=network-online.target docker.service personal-server-render-units.service
 Wants=network-online.target
 ConditionPathExists=!/etc/personal-server/.configured
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-StandardInput=tty-force
-StandardOutput=tty
-StandardError=journal+console
-TTYPath=/dev/tty1
-TTYReset=yes
-TTYVHangup=yes
+# No TTY directives. The wizard handles TTY itself:
+# - On a real server: `read </dev/tty` works (physical console)
+# - In CI/containers: answers.yaml is pre-seeded, no read needed
+# - If answers are missing AND no TTY: wizard exits 1 (correct failure)
 ExecStart=/etc/personal-server/first-boot/wizard.sh
 
 [Install]

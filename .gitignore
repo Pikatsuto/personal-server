@@ -6,6 +6,11 @@ build/report.json
 build/manifest.txt
 build/logs/
 
+# Test artefacts (generated per-run, never committed)
+build/results-*.json
+build/results-*.env
+build/yaml-backup/
+
 # Local dev state
 *.log
 *.tmp
@@ -28,3 +33,6 @@ coolify-root.txt
 pangolin-server-secret
 *.pem
 *.key
+
+# Test SSH key (generated per-run by build.sh, never committed)
+build/test-preseed/id_*

@@ -47,20 +47,27 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "tag=${mode}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-  # ─── Build the OCI image (linear chain — one job for the whole graph) ──
-  # The chain architecture means services aren't independently buildable, but
-  # BuildKit still caches every layer granularly: re-builds only touch stages
-  # whose sources changed, everything earlier in the chain is cache-hit.
+  # ─── Full validate-and-publish cycle ────────────────────────────────────
+  # build/build.sh does:
+  #   build #1 (all :latest) → run-tests --from-latest → patch yamls
+  #   → build #2 (digest-pinned) → run-tests --from-yaml
+  #   → only if both passes: tag floating alias and leave yaml diffs
+  #
+  # This job pushes the resulting image and (on prod/main) commits the
+  # yaml diffs back to main with [skip ci].
   build:
     needs: discover
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write       # for the [skip ci] commit-back of validated digests
+      packages: write       # for ghcr.io push
     outputs:
       image: ${{ steps.push.outputs.image }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history needed for git commit-back
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -73,46 +80,68 @@ jobs:
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
       - name: Free runner disk space
-        # AlmaLinux bootc + all services = ~2GB image; matrix runners
-        # typically have ~14GB free after the pre-installed software.
-        # Pruning the Android SDK + CodeQL buys ~10GB if we need it.
+        # AlmaLinux bootc + all services + the test container = ~4 GB peak.
+        # Standard runners have ~14 GB free; pruning toolcaches buys ~10 more.
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                       /opt/hostedtoolcache/CodeQL || true
           docker system prune -af || true
-      - name: Build
+      - name: Install QEMU/KVM for E2E tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils
+          # GitHub runners expose /dev/kvm — just ensure the permissions
+          sudo chmod 666 /dev/kvm || true
+
+      - name: Run validate cycle (build #1 → tests → patch → build #2 → tests)
         env:
           REGISTRY: ${{ env.REGISTRY }}/${{ github.repository_owner }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          TAG: ${{ needs.discover.outputs.tag }}
           # Weekly schedule rebuilds from scratch (--pull --no-cache) so
-          # upstream bumps (AlmaLinux bootc digest, EPEL / ZFS kmod / docker-ce
-          # / Incus COPR / WebZFS HEAD / Zabbly incus-ui / …) actually land in
-          # the image. Manual or push builds stay cache-friendly.
+          # OS-level upstream bumps actually land. Manual or push builds
+          # stay cache-friendly.
           NO_CACHE: ${{ github.event_name == 'schedule' && '1' || '0' }}
         run: |
-          chmod +x build/generate.sh build/build.sh \
+          chmod +x build/generate.sh build/build.sh build/run-tests.sh \
                    shared/lib/*.sh shared/first-boot/*.sh \
                    services/*/install.sh services/*/configure.sh \
+                   services/*/test.sh tests/*.sh \
                    bin/*
           ./build/build.sh '${{ needs.discover.outputs.mode }}'
-      - name: Push
+
+      - name: Push image
         id: push
         run: |
           img='${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}'
           tag='${{ needs.discover.outputs.tag }}'
           mode='${{ needs.discover.outputs.mode }}'
           docker push "${img}:${tag}"
-          # `latest` points at the most recent prod build, `dev` at the most
-          # recent dev build. Both moves are atomic on ghcr.io.
           if [[ $mode == prod ]]; then
-            docker tag  "${img}:${tag}" "${img}:latest"
             docker push "${img}:latest"
           else
-            docker tag  "${img}:${tag}" "${img}:dev"
             docker push "${img}:dev"
           fi
           echo "image=${img}:${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit validated digest bumps back to main
+        if: |
+          needs.discover.outputs.mode == 'prod' &&
+          github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$(git status --porcelain services/*/service.yaml)" ]]; then
+            echo "No yaml diff to commit (no upstream digests changed)."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add services/*/service.yaml
+          git commit -m "chore(versions): bump validated digests [skip ci]" \
+                     -m "Triggered by ${{ github.event_name }} on ${{ github.ref_name }}." \
+                     -m "Image: ${{ steps.push.outputs.image }}"
+          git push origin HEAD:${{ github.ref_name }}
+
       - name: Upload build report
         if: always()
         uses: actions/upload-artifact@v4
@@ -121,6 +150,7 @@ jobs:
           path: |
             build/report.json
             build/logs/
+            build/results-*.json
           if-no-files-found: ignore
       - name: Upload manifest
         if: success()
@@ -167,11 +197,6 @@ jobs:
           if-no-files-found: error
 
   # ─── Rolling "weekly" release (main branch only) ───────────────────────
-  # Single GitHub release with a fixed tag `weekly` that is updated in place
-  # on every successful main-branch build (push-to-main OR scheduled cron).
-  # Assets: the ISO + the build manifest. Body: git log + package diff vs
-  # the previous release, so the release notes show exactly what moved
-  # between two prod builds.
   release:
     needs: [discover, build, iso]
     if: needs.discover.outputs.mode == 'prod'
@@ -181,7 +206,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for `git log <prev>..HEAD`
+          fetch-depth: 0
       - name: Download ISO
         uses: actions/download-artifact@v4
         with:
@@ -207,7 +232,6 @@ jobs:
             echo "exists=0" >> "$GITHUB_OUTPUT"
           fi
       - name: Compose release notes
-        id: notes
         run: |
           prev_sha='${{ steps.prev.outputs.prev_sha }}'
           {

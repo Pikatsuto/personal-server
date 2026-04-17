@@ -16,6 +16,12 @@
 
 set -euo pipefail
 
+# Incus client tries to mkdir $HOME on first run; inside a bootc container
+# /root already exists as a non-empty dir → "mkdir /root: file exists".
+# Work around by pointing HOME to a writable temp dir for incus operations.
+export HOME=${HOME:-/root}
+[[ -d "$HOME/.config/incus" ]] || mkdir -p "$HOME/.config/incus" 2>/dev/null || true
+
 LOG=/var/log/personal-server/incus-template-refresh-$(date -u +%Y%m%dT%H%M%SZ).log
 mkdir -p "$(dirname "$LOG")"
 exec > >(tee -a "$LOG") 2>&1

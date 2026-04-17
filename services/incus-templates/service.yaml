@@ -13,5 +13,7 @@ build:
 runtime:
   systemd_units:
     - personal-server-incus-template-refresh.timer
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

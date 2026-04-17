@@ -19,5 +19,34 @@ runtime:
   health:
     type: http
     url: http://localhost:3001/api/v1/healthz
+images:
+  pangolin:
+    repo: docker.io/fosrl/pangolin
+    digest: ""        # populated by CI when test.sh passes against :latest
+  gerbil:
+    repo: docker.io/fosrl/gerbil
+    digest: ""
+  traefik:
+    repo: docker.io/traefik
+    digest: ""
+secrets:
+  - key: pangolin_secret
+    generate: "openssl rand -hex 32"
+wizard:
+  questions:
+    - key: domain
+      prompt: "Root domain (e.g. home.example.com)"
+      required: true
+    - key: acme_email
+      prompt: "Email for Let's Encrypt notifications"
+      required: true
+    - key: acme_dns_provider
+      prompt: "DNS provider for ACME wildcard (any Lego name)"
+      default: cloudflare
+    - key: acme_dns_credentials
+      prompt: "DNS provider credentials (env vars for Lego)"
+      type: secret_map
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

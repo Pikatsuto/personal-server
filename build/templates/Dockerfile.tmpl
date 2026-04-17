@@ -35,10 +35,34 @@ COPY build/report.json /etc/personal-server/build-report.json
 RUN set -eux; \
     chmod +x /etc/personal-server/first-boot/*.sh /usr/local/bin/*; \
     systemctl enable personal-server-firstboot.service; \
+    systemctl enable personal-server-render-units.service; \
     systemctl enable personal-server-reboot.timer; \
     systemctl enable bootc-fetch-apply-updates.timer; \
     install -d -m 0755 /etc/personal-server /var/log/personal-server; \
     [ -f /etc/personal-server/storage.yaml ] || echo '{}' | yq -P > /etc/personal-server/storage.yaml
+
+# ---- test preseed (only when TEST_PRESEED=1) ----
+# Bakes answers.yaml + SSH key into the image so the qcow2 boots with the
+# wizard pre-answered and SSH accessible. Used by run-tests.sh. Production
+# builds leave TEST_PRESEED=0 (default) and this block is a no-op.
+ARG TEST_PRESEED=0
+RUN if [ "$TEST_PRESEED" = "1" ]; then \
+      set -eux; \
+      install -d -m 0755 /etc/personal-server; \
+      install -d -m 0700 /root/.ssh; \
+    fi
+COPY build/test-preseed/answers.yaml /tmp/test-preseed-answers.yaml
+COPY build/test-preseed/acme-credentials.yaml /tmp/test-preseed-acme-credentials.yaml
+COPY build/test-preseed/id_ed25519.pub /tmp/test-preseed-ssh.pub
+RUN if [ "$TEST_PRESEED" = "1" ]; then \
+      set -eux; \
+      cp /tmp/test-preseed-answers.yaml /etc/personal-server/answers.yaml; \
+      cp /tmp/test-preseed-acme-credentials.yaml /etc/personal-server/acme-credentials.yaml; \
+      chmod 600 /etc/personal-server/acme-credentials.yaml; \
+      cp /tmp/test-preseed-ssh.pub /root/.ssh/authorized_keys; \
+      chmod 600 /root/.ssh/authorized_keys; \
+    fi; \
+    rm -f /tmp/test-preseed-*
 
 # bootc requires this label
 LABEL containers.bootc="1"

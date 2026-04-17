@@ -46,3 +46,20 @@ chmod +x "$SHIM/systemctl"
 PATH="$SHIM:$PATH" ./install_linux.sh < <(printf 'n\nn\n')
 
 rm -rf "$SRC" "$SHIM"
+
+# /opt is read-only on bootc/ostree. WebZFS's Python code uses Path.home()
+# to create writable dirs (.config, .ssh). Move the user's home to /var/lib
+# and symlink writable data dirs.
+WEBZFS_HOME=/var/lib/webzfs
+install -d -m 0755 -o webzfs -g webzfs "$WEBZFS_HOME"
+usermod -d "$WEBZFS_HOME" webzfs
+
+# Move existing writable data dirs from /opt to /var/lib
+for subdir in .config .ssh; do
+  if [[ -d /opt/webzfs/$subdir ]]; then
+    mv "/opt/webzfs/$subdir" "$WEBZFS_HOME/$subdir"
+  else
+    install -d -m 0700 -o webzfs -g webzfs "$WEBZFS_HOME/$subdir"
+  fi
+  ln -s "$WEBZFS_HOME/$subdir" "/opt/webzfs/$subdir"
+done

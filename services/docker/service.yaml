@@ -27,5 +27,12 @@ runtime:
   health:
     type: exec
     url: docker info >/dev/null 2>&1
+wizard:
+  questions:
+    - key: pool_docker
+      prompt: "ZFS pool for Docker (blank=rootfs)"
+      required: false
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

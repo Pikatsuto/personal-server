@@ -37,5 +37,12 @@ pangolin:
   subdomain: incus
   upstream: https://localhost:8443
   auth: proxy-auth
+wizard:
+  questions:
+    - key: pool_incus
+      prompt: "ZFS pool for Incus (blank=rootfs)"
+      required: false
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

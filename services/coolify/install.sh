@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build-time stage: nothing to do. The official Coolify installer cannot run
-# during a Docker build (it expects Docker daemon + systemd live), so we
-# defer the actual install to first-boot via configure.sh.
+# Build-time stage: stage the compose.override.yml so the systemd unit can
+# load it. The Coolify installer itself runs at first-boot via configure.sh.
 set -euo pipefail
 install -d -m 0755 /opt/personal-server/coolify
+install -m 0644 "$(dirname "$0")/files/compose.override.yml" \
+  /opt/personal-server/coolify/compose.override.yml

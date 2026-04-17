@@ -1,0 +1,12 @@
+[Unit]
+Description=Render personal-server unit templates with current image digests + answers
+DefaultDependencies=no
+Before=multi-user.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-server/lib/render-all-units.sh
+
+[Install]
+WantedBy=multi-user.target

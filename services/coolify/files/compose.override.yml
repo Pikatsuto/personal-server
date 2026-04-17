@@ -1,0 +1,22 @@
+# Compose override merged on top of Coolify's stock docker-compose.yml. Its
+# only role is to label every container in the Coolify stack with
+# `com.centurylinklabs.watchtower.enable=false` so the host's watchtower
+# leaves them alone — Coolify ships its own DB-aware AUTOUPDATE for those.
+#
+# Apps that Coolify deploys for the user (beyond this stack) are NOT
+# labelled because Coolify offers no global default-labels mechanism (and
+# hot-patching its PHP code would break on every Coolify upstream change).
+# Watchtower DOES touch those user-deployed apps — accepted trade-off.
+services:
+  coolify:
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+  postgres:
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+  redis:
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+  soketi:
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"

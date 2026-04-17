@@ -13,8 +13,8 @@
 # var or installer flag for that — verified 2026-04-11).
 set -euo pipefail
 
-DOMAIN=$(yq -r '.domain' /etc/personal-server/domain.yaml)
-ACME_EMAIL=$(yq -r '.acme_email' /etc/personal-server/domain.yaml)
+DOMAIN=${PS_DOMAIN:?PS_DOMAIN must be set by the wizard}
+ACME_EMAIL=${PS_ACME_EMAIL:?PS_ACME_EMAIL must be set by the wizard}
 
 # Pre-create the admin user so the operator can log in straight away.
 COOLIFY_ROOT_FILE=/etc/personal-server/coolify-root.txt
@@ -33,7 +33,9 @@ source "$COOLIFY_ROOT_FILE"
 
 # Make sure the shared network exists before Coolify boots and tries to
 # create one with the same name (Docker would dedup, but be explicit).
-docker network create coolify 2>/dev/null || true
+# Network `coolify` is created by pangolin's compose (depends_on: pangolin).
+# Do NOT create it here — a manually-created network has the wrong compose
+# labels, which makes pangolin's compose fail.
 
 if [[ ! -f /data/coolify/source/.env ]]; then
   # Coolify manages its own updates (DB schema migrations between versions

@@ -1,51 +1,26 @@
 #!/usr/bin/env bash
-# Renders Pangolin templates from the wizard answers and brings up the stack.
-# Does NOT attempt to create an admin or API key automatically — Pangolin's
-# bootstrap is interactive, the wizard's checklist tells the operator what to
-# do once Pangolin is up.
+# Pangolin configure.sh — called by the wizard at first-boot.
 #
-# Tag policy: :latest everywhere. A breaking upstream release means the
-# container fails to start on restart; data in ./config/ is left untouched,
-# the fix is a pinned rollback. Badger is the only exception — the Traefik
-# plugin loader refuses open-ended versions and insists on a real tag.
+# render-all-units.sh (which runs at every boot BEFORE services) handles
+# rendering the compose + config .tmpl files with IMAGE_*_REF, PS_DOMAIN,
+# PS_PANGOLIN_SECRET, etc. So configure.sh only needs to:
+#   1. Create acme.env from the DNS provider credentials
+#   2. Ensure the letsencrypt storage directory exists
+#   3. Enable + start the systemd unit
 set -euo pipefail
 
-PANGOLIN_DIR=/opt/personal-server/pangolin
+PANGOLIN_DIR=/var/lib/personal-server/pangolin
 CONF_DIR=/etc/personal-server
 
-PS_PANGOLIN_VERSION=${PS_PANGOLIN_VERSION:-latest}
-PS_GERBIL_VERSION=${PS_GERBIL_VERSION:-latest}
-PS_BADGER_VERSION=${PS_BADGER_VERSION:-v1.4.0}
-
-PS_DOMAIN=$(yq -r '.domain' "$CONF_DIR/domain.yaml")
-PS_ACME_EMAIL=$(yq -r '.acme_email' "$CONF_DIR/domain.yaml")
-PS_ACME_DNS_PROVIDER=$(yq -r '.acme_dns_provider' "$CONF_DIR/domain.yaml")
-export PS_DOMAIN PS_ACME_EMAIL PS_ACME_DNS_PROVIDER \
-       PS_PANGOLIN_VERSION PS_GERBIL_VERSION PS_BADGER_VERSION
-
-# Persist server.secret across reboots.
-SECRET_FILE=$CONF_DIR/pangolin-server-secret
-if [[ ! -f $SECRET_FILE ]]; then
-  umask 077
-  openssl rand -hex 32 > "$SECRET_FILE"
-fi
-PS_PANGOLIN_SECRET=$(<"$SECRET_FILE")
-export PS_PANGOLIN_SECRET
-
-# Render every .tmpl in /opt/personal-server/pangolin into the matching file
-# (drop the .tmpl suffix). Fully generic — no service name hardcoded.
-while IFS= read -r tmpl; do
-  out=${tmpl%.tmpl}
-  install -d -m 0755 "$(dirname "$out")"
-  envsubst < "$tmpl" > "$out"
-done < <(find "$PANGOLIN_DIR" -type f -name '*.tmpl')
-
-# Render acme.env from /etc/personal-server/acme.yaml — every key:value
-# becomes a docker env var Lego will read for the dnsChallenge.
+# Render acme.env from the credentials file (written by the wizard's
+# secret_map question collection).
 ACME_ENV=$PANGOLIN_DIR/acme.env
 : > "$ACME_ENV"
 chmod 600 "$ACME_ENV"
-yq -r 'to_entries | .[] | "\(.key)=\(.value)"' "$CONF_DIR/acme.yaml" >> "$ACME_ENV"
+CREDS_FILE=$CONF_DIR/acme-credentials.yaml
+if [[ -f $CREDS_FILE ]] && [[ $(yq 'length' "$CREDS_FILE") -gt 0 ]]; then
+  yq -r 'to_entries[] | "\(.key)=\(.value)"' "$CREDS_FILE" >> "$ACME_ENV"
+fi
 
 install -d -m 0755 \
   "$PANGOLIN_DIR/config/letsencrypt" \
@@ -56,8 +31,7 @@ chmod 600 "$PANGOLIN_DIR/config/letsencrypt/acme.json"
 systemctl daemon-reload
 systemctl enable --now personal-server-pangolin.service
 
-# Wait until Pangolin's API responds. Healthcheck endpoint verified
-# 2026-04-11 in upstream install/config/docker-compose.yml.
+# Wait until Pangolin's API responds.
 for _ in $(seq 1 60); do
   curl -fsS http://localhost:3001/api/v1/ >/dev/null 2>&1 && break
   sleep 2

@@ -2,7 +2,7 @@
 name: arcane
 display_name: Arcane
 description: Web UI for Docker host management
-depends_on: [docker]
+depends_on: [docker, pangolin]
 build:
   packages: []
   install_script: install.sh
@@ -26,5 +26,21 @@ pangolin:
   subdomain: docker
   upstream: http://localhost:3552
   auth: proxy-auth
+images:
+  arcane:
+    repo: ghcr.io/getarcaneapp/arcane
+    digest: ""
+secrets:
+  - key: arcane_encryption_key
+    generate: "openssl rand -hex 32"
+  - key: arcane_jwt_secret
+    generate: "openssl rand -hex 32"
+wizard:
+  questions:
+    - key: domain
+      prompt: "Root domain (e.g. home.example.com)"
+      required: true
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

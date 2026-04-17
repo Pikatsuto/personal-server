@@ -1,16 +1,25 @@
 # Rendered into /opt/personal-server/pangolin/docker-compose.yml at first boot.
 # Source: github.com/fosrl/pangolin/install/config/docker-compose.yml (verified
-# 2026-04-11). Two intentional deviations from upstream:
+# 2026-04-11). Three intentional deviations from upstream:
 #   1. Network is named `coolify` (not `pangolin`) so the Pangolin Traefik can
 #      see and route Coolify-deployed apps without any compose-side glue.
 #   2. Traefik has Docker provider enabled in addition to the upstream HTTP+File
 #      providers, so it picks up `traefik.*` labels from Coolify apps.
+#   3. Image refs are digest-pinned via ${IMAGE_<KEY>_REF} substituted at first
+#      boot from the validated digest in services/pangolin/service.yaml's
+#      images: block. CI runs the per-service test against :latest, bumps the
+#      digest in the yaml when the test passes, leaves it alone otherwise.
+# Watchtower opt-out: every service in this stack carries
+# `com.centurylinklabs.watchtower.enable=false` so the host's watchtower never
+# touches them — these versions are managed by our build pipeline.
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:${PS_PANGOLIN_VERSION}
+    image: ${IMAGE_PANGOLIN_REF}
     container_name: pangolin
     restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
     deploy:
       resources:
         limits:
@@ -26,11 +35,11 @@ services:
       retries: 15
 
   gerbil:
-    image: docker.io/fosrl/gerbil:${PS_GERBIL_VERSION}
+    image: ${IMAGE_GERBIL_REF}
     container_name: gerbil
     restart: unless-stopped
     labels:
-      com.centurylinklabs.watchtower.enable: "true"
+      com.centurylinklabs.watchtower.enable: "false"
     depends_on:
       pangolin:
         condition: service_healthy
@@ -55,9 +64,11 @@ services:
       - 80:80
 
   traefik:
-    image: docker.io/traefik:latest
+    image: ${IMAGE_TRAEFIK_REF}
     container_name: traefik
     restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
     network_mode: service:gerbil
     depends_on:
       pangolin:

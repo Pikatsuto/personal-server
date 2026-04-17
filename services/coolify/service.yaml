@@ -30,5 +30,18 @@ pangolin:
   subdomain: coolify
   upstream: http://coolify:8080
   auth: pocketid
+secrets:
+  - key: coolify_root_password
+    generate: "openssl rand -base64 24"
+wizard:
+  questions:
+    - key: domain
+      prompt: "Root domain (e.g. home.example.com)"
+      required: true
+    - key: acme_email
+      prompt: "Email for Let's Encrypt notifications"
+      required: true
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh

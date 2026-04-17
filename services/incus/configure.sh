@@ -1,18 +1,50 @@
 #!/usr/bin/env bash
-# Non-interactive Incus init via `incus admin init --preseed`. The preseed YAML
-# is the official method (verified 2026-04-11 on linuxcontainers.org/incus/docs
-# /main/howto/initialize/) and lets us defer storage_pools entirely when no
-# ZFS pool was selected at first-boot — the user can run
-# `personal-server move incus <pool>` later.
+# Non-interactive Incus init via `incus admin init --preseed`.
+# Detects container context (CI, Docker) and adapts:
+#   - /dev/kvm available → full KVM support for VMs
+#   - /dev/kvm absent → LXC containers only (no VMs)
+#   - Container detected + no kernel namespace support → incusd may fail
+#     to start; configure.sh exits 0 anyway (the test.sh will detect it)
 set -euo pipefail
 
-systemctl enable --now incus.socket incus.service
+# Detect container context
+IN_CONTAINER=0
+if systemd-detect-virt --container >/dev/null 2>&1; then
+  IN_CONTAINER=1
+  echo "incus: running inside a container"
+  [[ -e /dev/kvm ]] && echo "incus: /dev/kvm available → KVM VMs supported" \
+                     || echo "incus: /dev/kvm absent → LXC only, no KVM VMs"
+fi
 
-# Wait for the daemon to be reachable.
+systemctl enable incus.socket
+# Start socket (lightweight, always works). Then start the service with
+# --no-block so we don't hang if incusd crash-loops in a container.
+systemctl start incus.socket || true
+systemctl start --no-block incus.service || true
+
+# Poll for the daemon. Check TWO things each iteration:
+# 1. Is incus.service in `failed` state? → stop immediately (crash detected)
+# 2. Does `incus info` respond? → daemon is up
+daemon_up=0
 for _ in $(seq 1 30); do
-  incus info >/dev/null 2>&1 && break
+  svc_state=$(systemctl is-active incus.service 2>/dev/null || true)
+  if [[ $svc_state == failed ]]; then
+    echo "incus: incus.service entered failed state (crash detected)"
+    break
+  fi
+  if incus info >/dev/null 2>&1; then daemon_up=1; break; fi
   sleep 1
 done
+
+if [[ $daemon_up == 0 ]]; then
+  if [[ $IN_CONTAINER == 1 ]]; then
+    echo "incus: daemon did not start (expected in container without full kernel support)"
+    exit 0
+  else
+    echo "incus: daemon failed to start on bare metal — this is a real error" >&2
+    exit 1
+  fi
+fi
 
 # If init has already run, just make sure the HTTPS UI is exposed and exit.
 if incus storage list -f csv 2>/dev/null | grep -q .; then

@@ -1,0 +1,24 @@
+[Unit]
+Description=personal-server watchtower one-shot run
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Active fork of containrrr/watchtower (containrrr's repo unmaintained
+# since 2024). The fork keeps the same flags and labels for compat.
+# Image ref is digest-pinned by CI: see services/watchtower/service.yaml
+# `images.watchtower.digest` (rendered by run-install.sh into IMAGE_WATCHTOWER_REF).
+ExecStartPre=-/usr/bin/docker pull ${IMAGE_WATCHTOWER_REF}
+# Default mode: watches every running container EXCEPT those bearing the
+# label `com.centurylinklabs.watchtower.enable=false`. Our 5 dockerized
+# services and the Coolify stack carry that label so watchtower never
+# touches them — its only role is to update containers the user deploys
+# themselves via Arcane / docker CLI / docker compose, plus apps Coolify
+# spins up (which is a known and accepted overlap, since Coolify-deployed
+# apps cannot be globally labelled and we refuse to hot-patch Coolify).
+ExecStart=/usr/bin/docker run --rm \
+  --label com.centurylinklabs.watchtower.enable=false \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  ${IMAGE_WATCHTOWER_REF} \
+  --run-once --cleanup

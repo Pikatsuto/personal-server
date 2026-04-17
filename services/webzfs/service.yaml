@@ -35,5 +35,7 @@ pangolin:
   subdomain: zfs
   upstream: http://localhost:26619
   auth: proxy-auth
+test:
+  script: test.sh
 configure:
   first_boot: configure.sh
