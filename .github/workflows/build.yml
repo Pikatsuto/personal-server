@@ -100,6 +100,7 @@ jobs:
         env:
           REGISTRY: ${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          BOOTC_UPDATE_REF: ${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest
           # Weekly schedule rebuilds from scratch (--pull --no-cache) so
           # OS-level upstream bumps actually land. Manual or push builds
           # stay cache-friendly.

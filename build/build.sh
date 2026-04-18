@@ -104,6 +104,7 @@ do_build() {
   TAG=$tag REGISTRY=$REGISTRY IMAGE_NAME=$IMAGE_NAME \
     docker buildx bake $BAKE_FLAGS \
     --set "final.args.TEST_PRESEED=${TEST_PRESEED:-0}" \
+    --set "final.args.BOOTC_UPDATE_REF=${BOOTC_UPDATE_REF:-}" \
     -f "$BUILD_DIR/docker-bake.hcl" final
 }
 
