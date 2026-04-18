@@ -68,6 +68,14 @@ mapfile -t selected < <(services_list_topo)
 echo "build: mode=$MODE sha=$SHA services=${selected[*]} no_cache=${NO_CACHE:-0}"
 
 # ─── helpers ─────────────────────────────────────────────────────────
+resolve_digest_from_upstream() {
+  local repo=$1
+  docker buildx imagetools inspect "${repo}:latest" \
+    --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || \
+  docker manifest inspect "${repo}:latest" 2>/dev/null \
+    | jq -r '.config.digest // .manifests[0].digest // ""' 2>/dev/null || true
+}
+
 do_build() {
   local tag=$1
   TAG=$tag REGISTRY=$REGISTRY IMAGE_NAME=$IMAGE_NAME \
