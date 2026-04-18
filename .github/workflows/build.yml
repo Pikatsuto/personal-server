@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload build report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-report-${{ needs.discover.outputs.tag }}
           path: |
@@ -157,7 +157,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload manifest
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: manifest-${{ needs.discover.outputs.tag }}
           path: build/manifest.txt
@@ -203,7 +203,7 @@ jobs:
         run: |
           iso=$(find out -name '*.iso' -type f)
           xz -T0 -9 "$iso"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: personal-server-iso-${{ needs.discover.outputs.tag }}
           path: out/**/*.iso.xz
