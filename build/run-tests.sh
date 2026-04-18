@@ -18,7 +18,7 @@ case $MODE in --from-latest|--from-yaml) ;; *) echo "invalid mode $MODE" >&2; ex
 source "$REPO_ROOT/shared/lib/yaml.sh"
 source "$REPO_ROOT/shared/lib/images.sh"
 
-WORKDIR=$(mktemp -d /tmp/ps-test-vm.XXXXXX)
+WORKDIR=$(mktemp -d /var/tmp/ps-test-vm.XXXXXX)
 QCOW=$WORKDIR/disk.qcow2
 SSH_KEY=$REPO_ROOT/build/test-preseed/id_ed25519
 SSH_PORT=2222

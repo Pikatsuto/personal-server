@@ -130,13 +130,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ -z "$(git status --porcelain services/*/service.yaml)" ]]; then
+          if [[ -z "$(git status --porcelain services/*/service.yaml shared/base-packages.yaml)" ]]; then
             echo "No yaml diff to commit (no upstream digests changed)."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add services/*/service.yaml
+          git add services/*/service.yaml shared/base-packages.yaml
           git commit -m "chore(versions): bump validated digests [skip ci]" \
                      -m "Triggered by ${{ github.event_name }} on ${{ github.ref_name }}." \
                      -m "Image: ${{ steps.push.outputs.image }}"
@@ -179,10 +179,13 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                       /opt/hostedtoolcache/CodeQL || true
+      - name: Pull image into podman storage
+        run: |
+          sudo podman pull 'docker://${{ needs.build.outputs.image }}'
       - name: Build ISO via bootc-image-builder
         run: |
           mkdir -p out
-          sudo docker run --rm --privileged \
+          sudo podman run --rm --privileged \
             --security-opt label=type:unconfined_t \
             -v "$PWD/out:/output" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \

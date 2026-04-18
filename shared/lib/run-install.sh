@@ -34,7 +34,12 @@ while IFS= read -r repo; do
       dnf install -y "$repo"
       ;;
     *.repo|http*)
-      curl -fsSL "$repo" -o "/etc/yum.repos.d/${NAME}-$(basename "$repo")"
+      repofile="/etc/yum.repos.d/${NAME}-$(basename "$repo")"
+      curl -fsSL "$repo" -o "$repofile"
+      # Some upstream repos use $releasever in URLs but only publish for
+      # the major version (e.g. "9" not "9.7"). Pin to major.
+      major=$(rpm -E '%{rhel}' 2>/dev/null || sed -n 's/^VERSION_ID="\?\([0-9]*\).*/\1/p' /etc/os-release)
+      sed -i "s|\$releasever|$major|g" "$repofile"
       ;;
     *)
       echo "run-install: unrecognised extra_repo entry: $repo" >&2

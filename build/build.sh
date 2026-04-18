@@ -101,10 +101,12 @@ do_build() {
 
 # Backup every services/<svc>/service.yaml before mutating in place. Used
 # so we can revert if build #2 fails.
+BASE_YAML=$REPO_ROOT/shared/base-packages.yaml
 YAML_BACKUP=$BUILD_DIR/yaml-backup
 backup_yamls() {
   rm -rf "$YAML_BACKUP"
   mkdir -p "$YAML_BACKUP"
+  cp "$BASE_YAML" "$YAML_BACKUP/base-packages.yaml"
   local svc
   for svc in "${selected[@]}"; do
     install -d -m 0755 "$YAML_BACKUP/$svc"
@@ -112,6 +114,7 @@ backup_yamls() {
   done
 }
 restore_yamls() {
+  cp "$YAML_BACKUP/base-packages.yaml" "$BASE_YAML"
   local svc
   for svc in "${selected[@]}"; do
     [[ -f $YAML_BACKUP/$svc/service.yaml ]] || continue
@@ -178,6 +181,14 @@ if ! patch_yamls_from_results "$RESULTS_1"; then
   echo "build: hard fail in build #1 results — aborting" >&2
   restore_yamls
   exit 1
+fi
+
+# Pin the base image digest (same pattern as service images)
+base_repo=$(yq -r '.base_image.repo' "$BASE_YAML")
+base_digest=$(resolve_digest_from_upstream "$base_repo")
+if [[ -n $base_digest ]]; then
+  yq -i ".base_image.digest = \"$base_digest\"" "$BASE_YAML"
+  echo "build: base_image → $base_digest"
 fi
 
 echo

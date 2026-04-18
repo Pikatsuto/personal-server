@@ -56,8 +56,14 @@ if [[ -n $filter_report ]]; then
   mapfile -t final_services < <(services_filter_failed "${ordered[@]}" "$filter_report")
 fi
 
-base_image=$(yaml_get "$BASE_YAML" '.base_image')
-[[ -n $base_image ]] || { echo "generate: .base_image missing in $BASE_YAML" >&2; exit 1; }
+base_repo=$(yaml_get "$BASE_YAML" '.base_image.repo')
+base_digest=$(yaml_get "$BASE_YAML" '.base_image.digest')
+[[ -n $base_repo ]] || { echo "generate: .base_image.repo missing in $BASE_YAML" >&2; exit 1; }
+if [[ -n $base_digest && $base_digest != null ]]; then
+  base_image="${base_repo}@${base_digest}"
+else
+  base_image="${base_repo}:latest"
+fi
 
 # ---- service stages block ----
 # Stages are chained in topological order: service-X is FROM the previous
