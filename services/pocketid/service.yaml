@@ -25,7 +25,7 @@ runtime:
     url: docker exec personal-server-pocketid /app/pocket-id healthcheck
 sso:
   type: none
-pangolin:
+proxy:
   resource_name: pocketid
   subdomain: pocketid
   upstream: http://personal-server-pocketid:1411

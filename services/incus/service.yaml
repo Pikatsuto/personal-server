@@ -32,7 +32,7 @@ runtime:
     url: incus info >/dev/null 2>&1
 sso:
   type: proxy-auth
-pangolin:
+proxy:
   resource_name: incus
   subdomain: incus
   upstream: https://localhost:8443

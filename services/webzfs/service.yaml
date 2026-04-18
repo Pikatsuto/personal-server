@@ -30,7 +30,7 @@ runtime:
     url: http://localhost:26619
 sso:
   type: proxy-auth
-pangolin:
+proxy:
   resource_name: webzfs
   subdomain: zfs
   upstream: http://localhost:26619

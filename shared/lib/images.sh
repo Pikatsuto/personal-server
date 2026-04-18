@@ -3,7 +3,7 @@
 # into env vars + an envsubst whitelist, and to render .tmpl files with
 # whitelisted substitution.
 #
-# `images:` schema (see services/pangolin/service.yaml for an example):
+# `images:` schema (see any services/*/service.yaml for examples):
 #   images:
 #     <key>:
 #       repo: <registry>/<image>

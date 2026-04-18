@@ -179,8 +179,8 @@ done
 # Services whose deps are all done start immediately in background.
 # The topo-sorted `ordered` array guarantees we visit deps before
 # dependents. For each service we `wait` only on its declared deps'
-# PIDs, then launch it in background. Independent services (e.g.,
-# docker + incus) run truly in parallel.
+# PIDs, then launch it in background. Independent services (those
+# without mutual deps) run truly in parallel.
 echo
 echo "wizard: configuring ${#ordered[@]} services (parallel): ${ordered[*]}"
 

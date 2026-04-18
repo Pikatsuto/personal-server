@@ -21,7 +21,7 @@ runtime:
     url: http://localhost:3552
 sso:
   type: proxy-auth
-pangolin:
+proxy:
   resource_name: arcane
   subdomain: docker
   upstream: http://localhost:3552

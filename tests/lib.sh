@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# tests/lib.sh — helpers sourced by services/<svc>/test.sh and by
-# tests/integration.sh. Lives at /var/lib/personal-server/tests/lib.sh inside the test container.
+# tests/lib.sh — helpers sourced by services/<svc>/test.sh.
+# Lives at /var/lib/personal-server/tests/lib.sh inside the test VM.
 #
 # Conventions:
 #   - Tests run inside a systemd-booted bootc container with the host's
@@ -35,7 +35,7 @@ tests_fail() { echo "  [test FAIL] $*" >&2; exit 1; }
 
 # wait_for_http <url> [<expected_code>] [<max_seconds>]
 # Polls a URL via curl from the current network namespace. Use this for
-# native services running inside the test container (incus, webzfs).
+# native services running directly on the host (not in containers).
 # Polls until the URL returns the expected HTTP code (default 200) or
 # any 2xx/3xx if expected is "any". Fails after max_seconds (default 60).
 wait_for_http() {
