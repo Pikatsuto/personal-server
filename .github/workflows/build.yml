@@ -221,12 +221,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download ISO
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: personal-server-iso-${{ needs.discover.outputs.tag }}
           path: out/
       - name: Download new manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: manifest-${{ needs.discover.outputs.tag }}
           path: new/
