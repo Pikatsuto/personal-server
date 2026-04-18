@@ -199,10 +199,14 @@ jobs:
             --rootfs xfs \
             --use-librepo=false \
             "${img}"
+      - name: Compress ISO
+        run: |
+          iso=$(find out -name '*.iso' -type f)
+          xz -T0 -9 "$iso"
       - uses: actions/upload-artifact@v4
         with:
           name: personal-server-iso-${{ needs.discover.outputs.tag }}
-          path: out/**/*.iso
+          path: out/**/*.iso.xz
           if-no-files-found: error
 
   # ─── Rolling "weekly" release (main branch only) ───────────────────────
@@ -301,9 +305,9 @@ jobs:
               --notes-file release-notes.md \
               --target '${{ github.sha }}' \
               --latest
-            gh release upload weekly out/**/*.iso new/manifest.txt --clobber
+            gh release upload weekly out/**/*.iso.xz new/manifest.txt --clobber
           else
-            gh release create weekly out/**/*.iso new/manifest.txt \
+            gh release create weekly out/**/*.iso.xz new/manifest.txt \
               --title "$title" \
               --notes-file release-notes.md \
               --target '${{ github.sha }}' \
