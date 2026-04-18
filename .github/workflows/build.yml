@@ -26,8 +26,9 @@ jobs:
   discover:
     runs-on: ubuntu-latest
     outputs:
-      mode: ${{ steps.m.outputs.mode }}
-      tag:  ${{ steps.m.outputs.tag }}
+      mode:  ${{ steps.m.outputs.mode }}
+      tag:   ${{ steps.m.outputs.tag }}
+      owner: ${{ steps.m.outputs.owner }}
     steps:
       - id: m
         run: |
@@ -44,8 +45,10 @@ jobs:
           else
             mode=dev
           fi
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "tag=${mode}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
 
   # ─── Full validate-and-publish cycle ────────────────────────────────────
   # build/build.sh does:
@@ -95,7 +98,7 @@ jobs:
 
       - name: Run validate cycle (build #1 → tests → patch → build #2 → tests)
         env:
-          REGISTRY: ${{ env.REGISTRY }}/${{ github.repository_owner }}
+          REGISTRY: ${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           # Weekly schedule rebuilds from scratch (--pull --no-cache) so
           # OS-level upstream bumps actually land. Manual or push builds
@@ -112,7 +115,7 @@ jobs:
       - name: Push image
         id: push
         run: |
-          img='${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}'
+          img='${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}'
           tag='${{ needs.discover.outputs.tag }}'
           mode='${{ needs.discover.outputs.mode }}'
           docker push "${img}:${tag}"
