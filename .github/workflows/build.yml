@@ -195,6 +195,7 @@ jobs:
             quay.io/centos-bootc/bootc-image-builder:latest \
             --type iso \
             --rootfs xfs \
+            --use-librepo=false \
             '${{ needs.build.outputs.image }}'
       - uses: actions/upload-artifact@v4
         with:
