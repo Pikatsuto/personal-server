@@ -64,16 +64,5 @@ RUN if [ "$TEST_PRESEED" = "1" ]; then \
     fi; \
     rm -f /tmp/test-preseed-*
 
-# bootc: tell the installed system where to pull updates from
-ARG BOOTC_UPDATE_REF=""
-RUN if [ -n "$BOOTC_UPDATE_REF" ]; then \
-      set -eux; \
-      install -d -m 0755 /usr/lib/bootc/install; \
-      printf '[install]\nroot-fs-type = "xfs"\n\n[install.filesystem.root]\ntype = "xfs"\n\n' \
-        > /usr/lib/bootc/install/config.toml; \
-      printf '[image]\ntransport = "registry"\nimage = "%s"\n' "$BOOTC_UPDATE_REF" \
-        >> /usr/lib/bootc/install/config.toml; \
-    fi
-
 # bootc requires this label
 LABEL containers.bootc="1"

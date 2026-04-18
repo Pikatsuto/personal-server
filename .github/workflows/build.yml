@@ -100,7 +100,6 @@ jobs:
         env:
           REGISTRY: ${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          BOOTC_UPDATE_REF: ${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest
           # Weekly schedule rebuilds from scratch (--pull --no-cache) so
           # OS-level upstream bumps actually land. Manual or push builds
           # stay cache-friendly.
@@ -185,9 +184,11 @@ jobs:
                       /opt/hostedtoolcache/CodeQL || true
       - name: Pull image into podman storage
         run: |
-          sudo podman pull 'docker://${{ needs.build.outputs.image }}'
+          img='${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest'
+          sudo podman pull "docker://${img}"
       - name: Build ISO via bootc-image-builder
         run: |
+          img='${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest'
           mkdir -p out
           sudo podman run --rm --privileged \
             --security-opt label=type:unconfined_t \
@@ -197,7 +198,7 @@ jobs:
             --type iso \
             --rootfs xfs \
             --use-librepo=false \
-            '${{ needs.build.outputs.image }}'
+            "${img}"
       - uses: actions/upload-artifact@v4
         with:
           name: personal-server-iso-${{ needs.discover.outputs.tag }}
