@@ -41,6 +41,16 @@ wizard:
     - key: acme_email
       prompt: "Email for Let's Encrypt notifications"
       required: true
+checklist:
+  priority: 3
+  steps:
+    - title: "Open Coolify and disable its proxy"
+      body: |
+        URL:      https://coolify.${PS_DOMAIN}
+        Login:    see /etc/personal-server/coolify-root.txt
+        Then:     Servers → localhost → Proxy → None → Save
+                  (stops Coolify from spawning coolify-proxy on
+                   ports 80/443 already held by Pangolin Traefik)
 test:
   script: test.sh
 configure:

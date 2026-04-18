@@ -42,6 +42,23 @@ wizard:
     - key: domain
       prompt: "Root domain (e.g. home.example.com)"
       required: true
+checklist:
+  priority: 2
+  steps:
+    - title: "Open PocketID and create the admin (passkey)"
+      body: |
+        URL:      https://pocketid.${PS_DOMAIN}
+        Then:     Settings → Admin → API Keys → Generate
+        Save it:  echo '<paste-key>' > /etc/personal-server/pocketid-api-key
+                  chmod 600 /etc/personal-server/pocketid-api-key
+    - title: "Create the OIDC client in PocketID for Pangolin"
+      body: |
+        In PocketID: OIDC Clients → Add Client
+          Name:           pangolin
+          Callback URLs:  https://pangolin.${PS_DOMAIN}/auth/callback
+          PKCE:           off
+        Copy the generated Client ID + Secret back into the Pangolin
+        IdP form from the previous step, then Save.
 test:
   script: test.sh
 configure:

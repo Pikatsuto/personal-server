@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
 # apply-domain.sh — generates the post-bootstrap checklist.
 #
-# Why no API calls: the audit (see VERIFICATION-REPORT.md §A) showed that
-# Pangolin and PocketID both require an interactive UI step to create the
-# first admin user and the first API key. Until those exist, no resource /
-# IdP / OIDC client can be created via the REST APIs. Coolify is the same
-# story for `Server → Proxy → None`.
-#
-# So this script is intentionally side-effect-free: it just inspects every
-# service's service.yaml and writes /etc/personal-server/first-boot-checklist.txt
-# with the exact URLs, env values, and clicks the operator needs to do once
-# (and only once).
+# Fully data-driven: iterates over every services/*/service.yaml that
+# declares a `checklist:` block, sorts by priority, renders each step
+# with envsubst (PS_DOMAIN etc.), and appends a dynamic Pangolin
+# resources section from the `pangolin:` blocks. Zero hardcoded
+# service names.
 
 set -euo pipefail
 
@@ -19,10 +14,35 @@ SERVICES_DIR=$CONF_DIR/services
 CHECKLIST=$CONF_DIR/first-boot-checklist.txt
 
 DOMAIN=$(yq -r '.domain' "$CONF_DIR/answers.yaml")
+export PS_DOMAIN=$DOMAIN
 
 install -d -m 0700 "$CONF_DIR"
 umask 077
 
+# ── Collect checklist steps sorted by priority ──────────────────────
+# Each entry: "priority|service|title|body"
+checklist_entries=()
+for yaml in "$SERVICES_DIR"/*/service.yaml; do
+  [[ -f $yaml ]] || continue
+  has_checklist=$(yq -r '.checklist // "" | type' "$yaml")
+  [[ $has_checklist == "!!map" ]] || continue
+
+  svc=$(yq -r '.name' "$yaml")
+  priority=$(yq -r '.checklist.priority // 99' "$yaml")
+  n_steps=$(yq -r '.checklist.steps | length' "$yaml")
+
+  for ((i=0; i<n_steps; i++)); do
+    title=$(yq -r ".checklist.steps[$i].title" "$yaml")
+    body=$(yq -r ".checklist.steps[$i].body" "$yaml")
+    checklist_entries+=("${priority}|${svc}|${title}|${body}")
+  done
+done
+
+# Sort by priority (stable — preserves step order within same priority)
+IFS=$'\n' sorted=($(printf '%s\n' "${checklist_entries[@]}" | sort -t'|' -k1,1n -s))
+unset IFS
+
+# ── Write the checklist ─────────────────────────────────────────────
 {
   cat <<HEADER
 ================================================================
@@ -31,97 +51,56 @@ umask 077
 
 Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) for domain: ${DOMAIN}
 
-A handful of clicks are required, ONE TIME, because Pangolin /
-PocketID / Coolify cannot create their first admin or API key
-non-interactively. Do them in order; each step unlocks the next.
+A handful of clicks are required, ONE TIME, because some services
+cannot create their first admin or API key non-interactively.
+Do them in order; each step unlocks the next.
 
 HEADER
 
   step=0
-  next() { step=$((step+1)); printf '\n[%d] %s\n' "$step" "$1"; }
+  for entry in "${sorted[@]}"; do
+    IFS='|' read -r _ svc title body <<< "$entry"
+    step=$((step+1))
+    printf '\n[%d] %s\n' "$step" "$title"
+    # Render PS_* variables in the body (e.g. ${PS_DOMAIN})
+    echo "$body" | envsubst '$PS_DOMAIN'
+  done
 
-  next "Open Pangolin and create the admin account"
-  cat <<EOF
-       URL:      https://pangolin.${DOMAIN}
-       Then:     Settings → API Keys → Create root key
-       Save it:  echo '<paste-key>' > ${CONF_DIR}/pangolin-api-key
-                 chmod 600 ${CONF_DIR}/pangolin-api-key
-EOF
-
-  next "Open PocketID and create the admin (passkey)"
-  cat <<EOF
-       URL:      https://pocketid.${DOMAIN}
-       Then:     Settings → Admin → API Keys → Generate
-       Save it:  echo '<paste-key>' > ${CONF_DIR}/pocketid-api-key
-                 chmod 600 ${CONF_DIR}/pocketid-api-key
-EOF
-
-  next "Open Coolify and disable its proxy"
-  if [[ -f $CONF_DIR/coolify-root.txt ]]; then
-    src=$CONF_DIR/coolify-root.txt
-    user=$(grep '^COOLIFY_ROOT_USERNAME=' "$src" | cut -d= -f2-)
-    mail=$(grep '^COOLIFY_ROOT_USER_EMAIL=' "$src" | cut -d= -f2-)
-    pass=$(grep '^COOLIFY_ROOT_USER_PASSWORD=' "$src" | cut -d= -f2-)
-    cat <<EOF
-       URL:      https://coolify.${DOMAIN}
-       Login:    ${mail}  /  ${pass}
-                 (also stored in ${src})
-       Then:     Servers → localhost → Proxy → None  →  Save
-                 (this stops Coolify from spawning coolify-proxy on
-                  ports 80/443 already held by Pangolin Traefik)
-EOF
-  fi
-
-  next "Wire PocketID into Pangolin as an OIDC IdP"
-  cat <<EOF
-       In Pangolin: Settings → Identity Providers → Add → OAuth2/OIDC
-       Paste:
-         Issuer URL:        https://pocketid.${DOMAIN}
-         Authorization URL: https://pocketid.${DOMAIN}/authorize
-         Token URL:         https://pocketid.${DOMAIN}/api/oidc/token
-         Userinfo URL:      https://pocketid.${DOMAIN}/api/oidc/userinfo
-         Client ID:         (created next step in PocketID)
-         Client Secret:     (created next step in PocketID)
-         Identifier path:   sub
-         Email path:        email
-         Name path:         name
-         Scopes:            openid profile email
-EOF
-
-  next "Create the OIDC client in PocketID for Pangolin"
-  cat <<EOF
-       In PocketID: OIDC Clients → Add Client
-         Name:           pangolin
-         Callback URLs:  https://pangolin.${DOMAIN}/auth/callback
-         PKCE:           off
-       Copy the generated Client ID + Secret back into the Pangolin
-       IdP form from step 4, then Save.
-EOF
-
-  next "(Optional) create Pangolin Resources for the self-hosted UIs"
-  echo "       Each service below declares an upstream — paste it as a"
-  echo "       Resource → Site upstream in Pangolin and pick its auth mode."
-  echo
+  # ── Dynamic Pangolin resources section ────────────────────────────
+  has_any_pangolin=0
   for yaml in "$SERVICES_DIR"/*/service.yaml; do
     [[ -f $yaml ]] || continue
-    has_pangolin=$(yq -r '.pangolin // "" | type' "$yaml")
-    [[ $has_pangolin == "!!map" ]] || continue
-    name=$(yq -r '.name' "$yaml")
-    sub=$(yq -r '.pangolin.subdomain // .name' "$yaml")
-    upstream=$(yq -r '.pangolin.upstream // ""' "$yaml")
-    auth=$(yq -r '.pangolin.auth // "proxy-auth"' "$yaml")
-    printf '         %-10s  %s.%s  →  %s   [auth: %s]\n' \
-      "$name" "$sub" "$DOMAIN" "$upstream" "$auth"
+    t=$(yq -r '.pangolin // "" | type' "$yaml")
+    [[ $t == "!!map" ]] && { has_any_pangolin=1; break; }
   done
+
+  if [[ $has_any_pangolin == 1 ]]; then
+    step=$((step+1))
+    printf '\n[%d] (Optional) create Pangolin Resources for the self-hosted UIs\n' "$step"
+    echo "       Each service below declares an upstream — paste it as a"
+    echo "       Resource → Site upstream in Pangolin and pick its auth mode."
+    echo
+    for yaml in "$SERVICES_DIR"/*/service.yaml; do
+      [[ -f $yaml ]] || continue
+      t=$(yq -r '.pangolin // "" | type' "$yaml")
+      [[ $t == "!!map" ]] || continue
+      name=$(yq -r '.name' "$yaml")
+      sub=$(yq -r '.pangolin.subdomain // .name' "$yaml")
+      upstream=$(yq -r '.pangolin.upstream // ""' "$yaml")
+      auth=$(yq -r '.pangolin.auth // "proxy-auth"' "$yaml")
+      printf '         %-10s  %s.%s  →  %s   [auth: %s]\n' \
+        "$name" "$sub" "$DOMAIN" "$upstream" "$auth"
+    done
+  fi
 
   cat <<FOOTER
 
 ----------------------------------------------------------------
-When the 5 mandatory steps above are done, run:
+When done, run:
     personal-server reconfigure
 to re-run this checklist (idempotent) and confirm everything is
 wired. Sub-systems can be reached locally without going through
-Pangolin via:
+the reverse-proxy via:
     personal-server status
 ----------------------------------------------------------------
 FOOTER

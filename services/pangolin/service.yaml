@@ -46,6 +46,29 @@ wizard:
     - key: acme_dns_credentials
       prompt: "DNS provider credentials (env vars for Lego)"
       type: secret_map
+checklist:
+  priority: 1
+  steps:
+    - title: "Open Pangolin and create the admin account"
+      body: |
+        URL:      https://pangolin.${PS_DOMAIN}
+        Then:     Settings → API Keys → Create root key
+        Save it:  echo '<paste-key>' > /etc/personal-server/pangolin-api-key
+                  chmod 600 /etc/personal-server/pangolin-api-key
+    - title: "Wire PocketID into Pangolin as an OIDC IdP"
+      body: |
+        In Pangolin: Settings → Identity Providers → Add → OAuth2/OIDC
+        Paste:
+          Issuer URL:        https://pocketid.${PS_DOMAIN}
+          Authorization URL: https://pocketid.${PS_DOMAIN}/authorize
+          Token URL:         https://pocketid.${PS_DOMAIN}/api/oidc/token
+          Userinfo URL:      https://pocketid.${PS_DOMAIN}/api/oidc/userinfo
+          Client ID:         (from PocketID OIDC client, see next step)
+          Client Secret:     (from PocketID OIDC client, see next step)
+          Identifier path:   sub
+          Email path:        email
+          Name path:         name
+          Scopes:            openid profile email
 test:
   script: test.sh
 configure:
