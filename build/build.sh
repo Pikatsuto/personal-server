@@ -128,7 +128,7 @@ done
 
 n_changed=0
 for svc in "${selected[@]}"; do
-  [[ ${svc_changed[$svc]} == 1 ]] && ((n_changed++))
+  [[ ${svc_changed[$svc]} == 1 ]] && n_changed=$((n_changed + 1))
 done
 
 if [[ $n_changed == 0 ]]; then
