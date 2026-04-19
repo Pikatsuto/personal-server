@@ -182,32 +182,24 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                       /opt/hostedtoolcache/CodeQL || true
-      - name: Pull image into podman storage
-        run: |
-          img='${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest'
-          sudo podman pull "docker://${img}"
-      - name: Build ISO via bootc-image-builder
+      - name: Build net-install ISO
         run: |
           img='${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:latest'
           mkdir -p out
           sudo podman run --rm --privileged \
             --security-opt label=type:unconfined_t \
             -v "$PWD/out:/output" \
-            -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
-            --type iso \
+            --type anaconda-iso \
             --rootfs xfs \
             --use-librepo=false \
+            --installer-payload-ref "${img}" \
             "${img}"
-      - name: Compress ISO
-        run: |
           sudo chown -R "$(id -u):$(id -g)" out/
-          iso=$(find out -name '*.iso' -type f)
-          xz -T0 -9 "$iso"
       - uses: actions/upload-artifact@v7
         with:
           name: personal-server-iso-${{ needs.discover.outputs.tag }}
-          path: out/**/*.iso.xz
+          path: out/**/*.iso
           if-no-files-found: error
 
   # ─── Rolling "weekly" release (main branch only) ───────────────────────
@@ -306,9 +298,9 @@ jobs:
               --notes-file release-notes.md \
               --target '${{ github.sha }}' \
               --latest
-            gh release upload weekly out/**/*.iso.xz new/manifest.txt --clobber
+            gh release upload weekly out/**/*.iso new/manifest.txt --clobber
           else
-            gh release create weekly out/**/*.iso.xz new/manifest.txt \
+            gh release create weekly out/**/*.iso new/manifest.txt \
               --title "$title" \
               --notes-file release-notes.md \
               --target '${{ github.sha }}' \
