@@ -109,6 +109,7 @@ jobs:
           # OS-level upstream bumps actually land. Manual or push builds
           # stay cache-friendly.
           NO_CACHE: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          CACHE_TO: "type=registry,ref=${{ env.REGISTRY }}/${{ needs.discover.outputs.owner }}/${{ env.IMAGE_NAME }}:buildcache,mode=max"
         run: |
           chmod +x build/generate.sh build/build.sh build/run-tests.sh \
                    shared/lib/*.sh shared/first-boot/*.sh \

@@ -3,6 +3,7 @@
 variable "REGISTRY" { default = "ghcr.io/local" }
 variable "IMAGE_NAME" { default = "personal-server" }
 variable "TAG" { default = "dev" }
+variable "CACHE_TO" { default = "" }
 
 group "default" {
   targets = ["final"]
@@ -16,7 +17,7 @@ target "_common" {
   context    = "."
   dockerfile = "build/Dockerfile"
   cache-from = ["type=registry,ref=${REGISTRY}/${IMAGE_NAME}:buildcache"]
-  cache-to   = ["type=registry,ref=${REGISTRY}/${IMAGE_NAME}:buildcache,mode=max"]
+  cache-to   = CACHE_TO != "" ? [CACHE_TO] : []
 }
 
 __SERVICE_TARGETS__
