@@ -56,7 +56,7 @@ REGISTRY=${REGISTRY:-ghcr.io/local}
 IMAGE_NAME=${IMAGE_NAME:-personal-server}
 SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)
 TAG_BUILD1="${MODE}-${SHA}-build1"
-TAG_BUILD2="${MODE}-${SHA}"
+TAG_BUILD2="${MODE}-${SHA}-build2"
 export REGISTRY IMAGE_NAME
 
 BAKE_FLAGS=""
@@ -206,7 +206,7 @@ IMG2="$REGISTRY/$IMAGE_NAME:$TAG_BUILD2"
 
 echo
 echo "═══ run-tests against build #2 (--from-yaml) ═════════════════════"
-"$BUILD_DIR/run-tests.sh" "$IMG2" "$RESULTS_2" --from-yaml
+"$BUILD_DIR/run-tests.sh" "$IMG_PROD" "$RESULTS_2" --from-yaml
 
 if ! results_all_green "$RESULTS_2"; then
   echo "build: build #2 has failures — refusing to push, reverting yamls" >&2
@@ -215,23 +215,32 @@ if ! results_all_green "$RESULTS_2"; then
   exit 1
 fi
 
+# Destroy test SSH key before building production image
+rm -f "$SSH_KEY" "${SSH_KEY}.pub"
+
+echo
+echo "═══ build #3 (production — NO test preseed, clean image) ══════════"
+TAG_PROD="${MODE}-${SHA}"
+do_build "$TAG_PROD"
+IMG_PROD="$REGISTRY/$IMAGE_NAME:$TAG_PROD"
+
 echo
 echo "═══ all green — leaving yaml patches in worktree + tagging ═══════"
 
 # Floating tag move (atomic — same digest, additional tag)
 FLOATING=$([[ $MODE == prod ]] && echo latest || echo dev)
-docker tag "$IMG2" "$REGISTRY/$IMAGE_NAME:$FLOATING"
+docker tag "$IMG_PROD" "$REGISTRY/$IMAGE_NAME:$FLOATING"
 
 # Manifest extraction (kept from previous build.sh — see commit history)
 MANIFEST=$BUILD_DIR/manifest.txt
 {
   printf '# personal-server manifest\n'
-  printf 'image: %s\n' "$IMG2"
-  digest=$(docker image inspect "$IMG2" --format '{{.Id}}' 2>/dev/null || echo '?')
+  printf 'image: %s\n' "$IMG_PROD"
+  digest=$(docker image inspect "$IMG_PROD" --format '{{.Id}}' 2>/dev/null || echo '?')
   printf 'digest: %s\n' "$digest"
   printf 'built_at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf '\n## rpm packages\n'
-  docker run --rm --entrypoint /bin/sh "$IMG2" -c 'rpm -qa | sort' 2>/dev/null \
+  docker run --rm --entrypoint /bin/sh "$IMG_PROD" -c 'rpm -qa | sort' 2>/dev/null \
     || echo '(rpm -qa failed)'
   printf '\n## validated digests (from services/*/service.yaml)\n'
   for svc in "${selected[@]}"; do
@@ -247,7 +256,7 @@ MANIFEST=$BUILD_DIR/manifest.txt
 } > "$MANIFEST"
 
 echo
-echo "build: ✅ image  = $IMG2"
+echo "build: ✅ image  = $IMG_PROD"
 echo "build: ✅ tag    = $REGISTRY/$IMAGE_NAME:$FLOATING (atomic alias)"
 echo "build: ✅ manifest = $MANIFEST"
 echo "build: ✅ patched yamls in working tree (commit them to land in prod)"
