@@ -25,4 +25,25 @@ dnf config-manager --disable zfs
 dnf config-manager --enable zfs-kmod
 dnf install -y $DNF_OPTS zfs zfs-dracut
 
+# fish shell (EPEL, must be after epel-release)
+dnf install -y $DNF_OPTS fish
+
+# Ensure /usr/local/bin is in PATH for all shells and users (including root)
+cat > /etc/profile.d/local-bin.sh <<'BASH_PROFILE'
+[[ ":$PATH:" == *":/usr/local/bin:"* ]] || export PATH="/usr/local/bin:$PATH"
+BASH_PROFILE
+
+install -d -m 0755 /etc/fish/conf.d
+cat > /etc/fish/conf.d/local-bin.fish <<'FISH_CONF'
+fish_add_path --prepend /usr/local/bin
+FISH_CONF
+
+# Root login shell + sudo secure_path
+echo 'export PATH="/usr/local/bin:$PATH"' >> /root/.bashrc
+install -d -m 0700 /root/.config/fish
+echo 'fish_add_path --prepend /usr/local/bin' >> /root/.config/fish/config.fish
+if grep -q '^Defaults.*secure_path' /etc/sudoers 2>/dev/null; then
+  sed -i 's|^Defaults\s*secure_path\s*=\s*"*\(.*\)"*|Defaults    secure_path = "\1:/usr/local/bin"|' /etc/sudoers
+fi
+
 dnf clean all
