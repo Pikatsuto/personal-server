@@ -19,7 +19,7 @@ jobs:
           mkdir -p out
           curl -fSL "https://repo.almalinux.org/almalinux/9/isos/x86_64/" \
             -o /tmp/isos.html
-          BOOT_ISO=$(grep -oP 'AlmaLinux-9[^"]*-boot-x86_64\.iso' /tmp/isos.html | sort -V | tail -1)
+          BOOT_ISO=$(grep -oP 'AlmaLinux-[^"]*-latest-x86_64-boot\.iso' /tmp/isos.html | head -1)
           curl -fSL "https://repo.almalinux.org/almalinux/9/isos/x86_64/${BOOT_ISO}" \
             -o out/boot.iso
 

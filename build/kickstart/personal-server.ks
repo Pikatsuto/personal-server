@@ -5,7 +5,7 @@
 # No autopart, no clearpart — the user chooses the disk
 
 # Pull the bootc image from the registry
-bootc --source-imgref=ghcr.io/pikatsuto/personal-server:latest
+ostreecontainer --url=ghcr.io/pikatsuto/personal-server:latest --no-signature-verification
 
 # Reboot after install
 reboot
