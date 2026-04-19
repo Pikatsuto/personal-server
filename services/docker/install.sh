@@ -9,4 +9,9 @@ cat > /etc/docker/daemon.json <<'JSON'
   "live-restore": true
 }
 JSON
+# containerd tries to mkdir /opt/containerd (plugins) at runtime (read-only
+# on bootc). /var/lib/containerd is already used for containerd data.
+install -d -m 0755 /var/lib/containerd-plugins
+ln -sfn /var/lib/containerd-plugins /opt/containerd
+
 systemctl enable docker.service docker.socket

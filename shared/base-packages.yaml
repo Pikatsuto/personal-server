@@ -36,6 +36,7 @@ packages:
   - findutils
   - python3
   - python3-pip
+  - fish
 copr_repos: []
 extra_repos: []
 binaries:

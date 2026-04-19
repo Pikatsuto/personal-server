@@ -51,7 +51,8 @@ case $cmd in
     ;;
   reconfigure)
     rm -f "$CONF_DIR/.configured"
-    systemctl start personal-server-firstboot.service
+    rm -rf "$CONF_DIR/configured/"
+    exec /etc/personal-server/first-boot/wizard.sh
     ;;
   build-report)
     cat "$CONF_DIR/build-report.json"

@@ -258,6 +258,16 @@ if [[ -x $CONF_DIR/first-boot/apply-domain.sh ]]; then
   "$CONF_DIR/first-boot/apply-domain.sh" || echo "wizard: apply-domain exited $?"
 fi
 
+# Set fish as default shell for all non-system users (if fish is installed)
+if command -v fish >/dev/null 2>&1; then
+  fish_path=$(command -v fish)
+  grep -q "$fish_path" /etc/shells 2>/dev/null || echo "$fish_path" >> /etc/shells
+  while IFS=: read -r user _ uid _ _ home shell; do
+    [[ $uid -ge 1000 && $uid -lt 65534 && -d $home && $shell != "$fish_path" ]] || continue
+    chsh -s "$fish_path" "$user" 2>/dev/null && echo "wizard: $user shell → fish"
+  done < /etc/passwd
+fi
+
 touch "$CONF_DIR/.configured"
 echo
 echo "wizard: done. log: $LOG"

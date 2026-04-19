@@ -61,6 +61,9 @@ RUN if [ "$TEST_PRESEED" = "1" ]; then \
       chmod 600 /etc/personal-server/acme-credentials.yaml; \
       cp /tmp/test-preseed-ssh.pub /root/.ssh/authorized_keys; \
       chmod 600 /root/.ssh/authorized_keys; \
+      install -d -m 0755 /etc/systemd/system/personal-server-firstboot.service.d; \
+      printf '[Service]\nStandardInput=inherit\nStandardOutput=inherit\nStandardError=inherit\nTTYPath=\nTTYReset=\nTTYVHangup=\n' \
+        > /etc/systemd/system/personal-server-firstboot.service.d/no-tty.conf; \
     fi; \
     rm -f /tmp/test-preseed-*
 
