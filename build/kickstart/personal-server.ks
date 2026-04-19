@@ -1,6 +1,8 @@
 # personal-server net-install kickstart
 # Anaconda pulls the bootc image from GHCR at install time.
 
+network --hostname=personal-server
+
 # Disk — interactive: Anaconda shows the disk picker
 # No autopart, no clearpart — the user chooses the disk
 
