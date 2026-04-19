@@ -33,7 +33,7 @@ proxy:
 images:
   pocketid:
     repo: ghcr.io/pocket-id/pocket-id
-    digest: ""
+    digest: "sha256:1549f31f76a6c158af0056a4f2c62a590627886a84e9da9bda76eb1e142a449a"
 secrets:
   - key: pocketid_encryption_key
     generate: "openssl rand -base64 32"

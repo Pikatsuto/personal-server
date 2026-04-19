@@ -12,7 +12,7 @@ runtime:
 images:
   watchtower:
     repo: docker.io/nickfedor/watchtower
-    digest: ""
+    digest: "sha256:62bec6c1a89e9882970130a311f0ac27faf11f26520b8755ca6a78802a1a6d8f"
 test:
   script: test.sh
 configure:
