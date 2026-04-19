@@ -3,57 +3,60 @@ name: iso
 on:
   workflow_dispatch: {}
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: personal-server
-
 jobs:
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      owner: ${{ steps.m.outputs.owner }}
-      img:   ${{ steps.m.outputs.img }}
-    steps:
-      - id: m
-        run: |
-          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
-          echo "owner=$owner" >> "$GITHUB_OUTPUT"
-          echo "img=${{ env.REGISTRY }}/${owner}/${{ env.IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
-
   iso:
-    needs: discover
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: read
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install mkksiso
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lorax
+      - name: Install xorriso and isolinux
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xorriso isolinux
 
       - name: Download AlmaLinux boot ISO
         run: |
           mkdir -p out
-          ALMA_ISO_URL=$(curl -sL https://mirrors.almalinux.org/mirrorlist/9/boot | head -1)
-          curl -fSL "${ALMA_ISO_URL}x86_64/iso/" -o /dev/null 2>&1 || true
-          # Use a known mirror directly
           curl -fSL "https://repo.almalinux.org/almalinux/9/isos/x86_64/" \
-            -o /tmp/isos.html 2>/dev/null
+            -o /tmp/isos.html
           BOOT_ISO=$(grep -oP 'AlmaLinux-9[^"]*-boot-x86_64\.iso' /tmp/isos.html | sort -V | tail -1)
           curl -fSL "https://repo.almalinux.org/almalinux/9/isos/x86_64/${BOOT_ISO}" \
             -o out/boot.iso
-          echo "BOOT_ISO=out/boot.iso" >> "$GITHUB_ENV"
 
-      - name: Render kickstart and inject into ISO
+      - name: Inject kickstart URL into ISO
         run: |
-          img='${{ needs.discover.outputs.img }}'
-          sed "s|__BOOTC_IMAGE_REF__|${img}|g" \
-            build/kickstart/personal-server.ks > out/ks.cfg
-          mkksiso -c 'inst.ks=file:///run/install/repo/ks.cfg' \
-            --ks out/ks.cfg \
-            "$BOOT_ISO" out/personal-server-netinstall.iso
-          rm -f "$BOOT_ISO" out/ks.cfg
+          KS_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/build/kickstart/personal-server.ks"
+          WORKDIR=$(mktemp -d)
+
+          xorriso -osirrox on -indev out/boot.iso -extract / "$WORKDIR"
+          chmod -R u+w "$WORKDIR"
+
+          # Patch UEFI grub to auto-load kickstart from GitHub
+          sed -i "s|inst\.stage2|inst.ks=${KS_URL} inst.stage2|" \
+            "$WORKDIR/EFI/BOOT/grub.cfg"
+
+          # Patch BIOS isolinux
+          if [[ -f "$WORKDIR/isolinux/isolinux.cfg" ]]; then
+            sed -i "s|inst\.stage2|inst.ks=${KS_URL} inst.stage2|" \
+              "$WORKDIR/isolinux/isolinux.cfg"
+          fi
+
+          # Rebuild ISO (BIOS + UEFI hybrid)
+          xorriso -as mkisofs \
+            -o out/personal-server-netinstall.iso \
+            -R -J -V "PS-NETINSTALL" \
+            -b isolinux/isolinux.bin \
+            -c isolinux/boot.cat \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -eltorito-alt-boot \
+            -e images/efiboot.img \
+            -no-emul-boot \
+            -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+            -isohybrid-gpt-basdat \
+            "$WORKDIR"
+
+          rm -rf "$WORKDIR" out/boot.iso
+          ls -lh out/personal-server-netinstall.iso
 
       - name: Fetch previous release state
         id: prev
@@ -66,37 +69,23 @@ jobs:
             echo "exists=0" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Compose release notes
-        run: |
-          img='${{ needs.discover.outputs.img }}'
-          {
-            echo "# Net-install ISO"
-            echo
-            echo "AlmaLinux boot ISO with kickstart that pulls \`${img}\` from GHCR at install time."
-            echo
-            echo "- **Image:** \`${img}\`"
-            echo "- **Built at:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "- **Commit:** [\`${{ github.sha }}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})"
-            echo
-            echo "Boot the ISO, pick a disk, and the installer pulls the latest image from the registry."
-          } > release-notes.md
-
       - name: Create or update release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           title="Net-install ISO — $(date -u +%Y-%m-%d)"
+          notes="Boot this ISO to install personal-server. Anaconda fetches the kickstart from GitHub and pulls the latest image from GHCR at install time."
           if [[ '${{ steps.prev.outputs.exists }}' == '1' ]]; then
             gh release edit install-iso \
               --title "$title" \
-              --notes-file release-notes.md \
+              --notes "$notes" \
               --target '${{ github.sha }}' \
               --latest=false
             gh release upload install-iso out/personal-server-netinstall.iso --clobber
           else
             gh release create install-iso out/personal-server-netinstall.iso \
               --title "$title" \
-              --notes-file release-notes.md \
+              --notes "$notes" \
               --target '${{ github.sha }}' \
               --latest=false
           fi
