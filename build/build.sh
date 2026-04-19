@@ -285,7 +285,7 @@ IMG2="$REGISTRY/$IMAGE_NAME:$TAG_BUILD2"
 
 echo
 echo "═══ run-tests against build #2 (--from-yaml) ═════════════════════"
-"$BUILD_DIR/run-tests.sh" "$IMG_PROD" "$RESULTS_2" --from-yaml
+"$BUILD_DIR/run-tests.sh" "$IMG2" "$RESULTS_2" --from-yaml
 
 if ! results_all_green "$RESULTS_2"; then
   echo "build: build #2 has failures — refusing to push, reverting yamls" >&2
