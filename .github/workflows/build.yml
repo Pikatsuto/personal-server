@@ -3,6 +3,11 @@ name: build
 on:
   push:
     branches: [main, dev]
+    paths-ignore:
+      - '*.md'
+      - 'build/kickstart/**'
+      - '.github/workflows/iso.yml'
+      - '.github/dependabot.yml'
   schedule:
     # Sunday 23:00 UTC = right before the host's Monday 03:00 update wave.
     # Build typically takes 6 minutes, plus margin for ghcr push, so the
