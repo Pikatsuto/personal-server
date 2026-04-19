@@ -39,11 +39,13 @@ fish_add_path --prepend /usr/local/bin
 FISH_CONF
 
 # Root login shell + sudo secure_path
-echo 'export PATH="/usr/local/bin:$PATH"' >> /root/.bashrc
-install -d -m 0700 /root/.config/fish
-echo 'fish_add_path --prepend /usr/local/bin' >> /root/.config/fish/config.fish
+# /root → /var/roothome (symlink on bootc, doesn't exist at build time)
+install -d -m 0700 /var/roothome
+echo 'export PATH="/usr/local/bin:$PATH"' >> /var/roothome/.bashrc
+install -d -m 0700 /var/roothome/.config/fish
+echo 'fish_add_path --prepend /usr/local/bin' >> /var/roothome/.config/fish/config.fish
 if grep -q '^Defaults.*secure_path' /etc/sudoers 2>/dev/null; then
-  sed -i 's|^Defaults\s*secure_path\s*=\s*"*\(.*\)"*|Defaults    secure_path = "\1:/usr/local/bin"|' /etc/sudoers
+  sed -i 's|^Defaults\s*secure_path\s*=\s*"\?\([^"]*\)"\?|Defaults    secure_path = "\1:/usr/local/bin"|' /etc/sudoers
 fi
 
 dnf clean all
