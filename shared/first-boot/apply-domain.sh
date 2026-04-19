@@ -40,7 +40,12 @@ for yaml in "$SERVICES_DIR"/*/service.yaml; do
   for ((i=0; i<n_steps; i++)); do
     title=$(yq -r ".checklist.steps[$i].title" "$yaml")
     body=$(yq -r ".checklist.steps[$i].body" "$yaml")
-    checklist_entries+=("${priority}|${title}|${body}")
+    token_file=$(yq -r ".checklist.steps[$i].token_file // \"\"" "$yaml")
+    token=""
+    if [[ -n $token_file && -f $token_file ]]; then
+      token=$(cat "$token_file")
+    fi
+    checklist_entries+=("${priority}|${title}|${body}|${token}")
   done
 done
 
@@ -65,11 +70,19 @@ HEADER
 
   step=0
   for entry in "${sorted[@]}"; do
-    IFS='|' read -r _ title body <<< "$entry"
+    IFS='|' read -r _ title body token <<< "$entry"
     step=$((step+1))
     rendered_title=$(echo "$title" | envsubst "$envsubst_whitelist")
     rendered_body=$(echo "$body" | envsubst "$envsubst_whitelist")
     printf '\n[%d] %s\n' "$step" "$rendered_title"
+    if [[ -n $token ]]; then
+      if [[ $(echo "$token" | wc -l) -gt 1 ]]; then
+        echo "       Credentials:"
+        echo "$token" | sed 's/^/         /'
+      else
+        printf '       Setup token: %s\n' "$token"
+      fi
+    fi
     echo "$rendered_body"
   done
 

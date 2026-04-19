@@ -6,13 +6,14 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/data/coolify/source
+WorkingDirectory=/var/lib/coolify/coolify/source
 # Stock Coolify compose + our override that labels the 4 stack containers
 # with com.centurylinklabs.watchtower.enable=false. The override is
 # installed at first boot by services/coolify/configure.sh into
 # /opt/personal-server/coolify/compose.override.yml.
-ExecStart=/usr/bin/docker compose -f docker-compose.yml -f /opt/personal-server/coolify/compose.override.yml up -d
-ExecStop=/usr/bin/docker compose -f docker-compose.yml -f /opt/personal-server/coolify/compose.override.yml down
+EnvironmentFile=-/var/lib/coolify/coolify/source/.env
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml -f /opt/personal-server/coolify/compose.override.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml -f /opt/personal-server/coolify/compose.override.yml down
 
 [Install]
 WantedBy=multi-user.target

@@ -45,9 +45,9 @@ checklist:
   priority: 3
   steps:
     - title: "Open Coolify and disable its proxy"
+      token_file: /etc/personal-server/coolify-root.txt
       body: |
         URL:      https://coolify.${PS_DOMAIN}
-        Login:    see /etc/personal-server/coolify-root.txt
         Then:     Servers → localhost → Proxy → None → Save
                   (stops Coolify from spawning coolify-proxy on
                    ports 80/443 already held by Pangolin Traefik)

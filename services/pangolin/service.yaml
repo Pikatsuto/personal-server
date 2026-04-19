@@ -32,6 +32,8 @@ images:
 secrets:
   - key: pangolin_secret
     generate: "openssl rand -hex 32"
+  - key: badger_version
+    generate: "curl -fsSL https://api.github.com/repos/fosrl/badger/releases/latest | jq -r .tag_name"
 wizard:
   questions:
     - key: domain
@@ -50,8 +52,9 @@ checklist:
   priority: 1
   steps:
     - title: "Open Pangolin and create the admin account"
+      token_file: /etc/personal-server/pangolin-setup-token
       body: |
-        URL:      https://pangolin.${PS_DOMAIN}
+        URL:      https://pangolin.${PS_DOMAIN}/setup
         Then:     Settings → API Keys → Create root key
         Save it:  echo '<paste-key>' > /etc/personal-server/pangolin-api-key
                   chmod 600 /etc/personal-server/pangolin-api-key

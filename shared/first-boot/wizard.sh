@@ -70,10 +70,14 @@ for entry in "${questions[@]}"; do
   existing=$(get_answer "$key")
 
   if [[ $qtype == secret_map ]]; then
-    # Secret map: collect key=value pairs until blank. Only ask if no
-    # credentials file exists yet.
+    # Secret map: collect key=value pairs until blank. Ask if the
+    # credentials file is missing or empty (just "---").
     CREDS_FILE=$CONF_DIR/acme-credentials.yaml
-    if [[ ! -f $CREDS_FILE ]]; then
+    has_creds=0
+    if [[ -f $CREDS_FILE ]] && [[ $(yq 'length' "$CREDS_FILE" 2>/dev/null) -gt 0 ]]; then
+      has_creds=1
+    fi
+    if [[ $has_creds == 0 ]]; then
       echo
       echo "$prompt (env vars for the provider). Leave blank to stop."
       echo '---' > "$CREDS_FILE"
@@ -269,5 +273,12 @@ if command -v fish >/dev/null 2>&1; then
 fi
 
 touch "$CONF_DIR/.configured"
+
+# Display the checklist so the user knows what manual steps remain
+if [[ -f $CONF_DIR/first-boot-checklist.txt ]]; then
+  echo
+  cat "$CONF_DIR/first-boot-checklist.txt"
+fi
+
 echo
 echo "wizard: done. log: $LOG"

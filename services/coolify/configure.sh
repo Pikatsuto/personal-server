@@ -52,5 +52,9 @@ fi
 # Patch APP_URL to match the operator's domain (the installer leaves a default).
 sed -i "s|^APP_URL=.*|APP_URL=https://coolify.${DOMAIN}|" /data/coolify/source/.env
 
+# SELinux: label /var/lib/coolify so systemd can chdir into it
+semanage fcontext -a -t container_file_t '/var/lib/coolify(/.*)?' 2>/dev/null || true
+restorecon -Rv /var/lib/coolify 2>/dev/null || true
+
 systemctl daemon-reload
 systemctl enable --now personal-server-coolify.service
