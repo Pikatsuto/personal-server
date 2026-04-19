@@ -201,6 +201,7 @@ jobs:
             "${img}"
       - name: Compress ISO
         run: |
+          sudo chown -R "$(id -u):$(id -g)" out/
           iso=$(find out -name '*.iso' -type f)
           xz -T0 -9 "$iso"
       - uses: actions/upload-artifact@v7
