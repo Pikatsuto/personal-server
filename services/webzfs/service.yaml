@@ -33,7 +33,7 @@ sso:
 proxy:
   resource_name: webzfs
   subdomain: zfs
-  upstream: http://localhost:26619
+  upstream: http://host.docker.internal:26619
   auth: proxy-auth
 test:
   script: test.sh

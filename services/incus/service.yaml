@@ -35,7 +35,7 @@ sso:
 proxy:
   resource_name: incus
   subdomain: incus
-  upstream: https://localhost:8443
+  upstream: https://host.docker.internal:8443
   auth: proxy-auth
 wizard:
   questions:

@@ -24,7 +24,7 @@ sso:
 proxy:
   resource_name: arcane
   subdomain: docker
-  upstream: http://localhost:3552
+  upstream: http://personal-server-arcane:3552
   auth: proxy-auth
 images:
   arcane:
