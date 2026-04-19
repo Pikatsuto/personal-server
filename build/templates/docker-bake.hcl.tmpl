@@ -15,8 +15,8 @@ group "services" {
 target "_common" {
   context    = "."
   dockerfile = "build/Dockerfile"
-  cache-from = ["type=gha"]
-  cache-to   = ["type=gha,mode=max"]
+  cache-from = ["type=registry,ref=${REGISTRY}/${IMAGE_NAME}:buildcache"]
+  cache-to   = ["type=registry,ref=${REGISTRY}/${IMAGE_NAME}:buildcache,mode=max"]
 }
 
 __SERVICE_TARGETS__

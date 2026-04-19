@@ -165,6 +165,17 @@ for svc_dir in "$REPO_ROOT"/services/*/; do
   yaml=$svc_dir/service.yaml
   [[ -f "$svc_dir/test.sh" ]] || continue
 
+  # Skip unchanged services if CHANGED_SERVICES is set
+  if [[ -n ${CHANGED_SERVICES:-} ]]; then
+    skip=1
+    for cs in $CHANGED_SERVICES; do [[ $cs == "$svc" ]] && { skip=0; break; }; done
+    if [[ $skip == 1 ]]; then
+      echo "run-tests: ── $svc ── (skipped, unchanged)"
+      pass[$svc]=1
+      continue
+    fi
+  fi
+
   echo "run-tests: ── $svc ──"
 
   env_cmd=""

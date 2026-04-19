@@ -24,7 +24,9 @@ __SERVICE_STAGES__
 
 # ---- final ----
 FROM __FINAL_PARENT__ AS final
+ARG BUILD_SHA=""
 LABEL org.personal-server.generated="true"
+LABEL org.opencontainers.image.revision="${BUILD_SHA}"
 __FINAL_COPIES__
 
 # shared first-boot, systemd units, and CLIs

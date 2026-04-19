@@ -67,6 +67,82 @@ fi
 mapfile -t selected < <(services_list_topo)
 echo "build: mode=$MODE sha=$SHA services=${selected[*]} no_cache=${NO_CACHE:-0}"
 
+# ─── change detection ───────────────────────────────────────────────
+# Compare against the last successfully published image on the registry.
+FLOATING=$([[ $MODE == prod ]] && echo latest || echo dev)
+PREV_IMG="$REGISTRY/$IMAGE_NAME:$FLOATING"
+PREV_SHA=""
+declare -A svc_changed=()
+
+# Get the commit SHA baked into the previous successful image
+PREV_SHA=$(docker pull "$PREV_IMG" >/dev/null 2>&1 && \
+  docker inspect "$PREV_IMG" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)
+[[ $PREV_SHA == "<no value>" ]] && PREV_SHA=""
+
+global_changed=0
+if [[ -z $PREV_SHA ]]; then
+  echo "build: no previous successful build found — full rebuild"
+  global_changed=1
+else
+  echo "build: last successful build: $PREV_SHA"
+  if ! git diff --quiet "$PREV_SHA" HEAD -- shared/ build/templates/ build/generate.sh build/build.sh build/run-tests.sh 2>/dev/null; then
+    echo "build: shared/build code changed — all services need rebuild"
+    global_changed=1
+  fi
+  base_repo=$(yq -r '.base_image.repo' "$BASE_YAML")
+  base_cur=$(yq -r '.base_image.digest // ""' "$BASE_YAML")
+  base_upstream=$(resolve_digest_from_upstream "$base_repo")
+  if [[ -n $base_upstream && $base_cur != "$base_upstream" ]]; then
+    echo "build: base image digest changed — all services need rebuild"
+    global_changed=1
+  fi
+fi
+
+for svc in "${selected[@]}"; do
+  if [[ $global_changed == 1 ]]; then
+    svc_changed[$svc]=1
+    continue
+  fi
+  changed=0
+  # Code changed since last successful build?
+  if ! git diff --quiet "$PREV_SHA" HEAD -- "services/$svc/" 2>/dev/null; then
+    echo "build: $svc — code changed"
+    changed=1
+  fi
+  # Upstream image digest changed vs service.yaml?
+  yaml=$REPO_ROOT/services/$svc/service.yaml
+  if yq -e '.images' "$yaml" >/dev/null 2>&1; then
+    while IFS= read -r key; do
+      [[ -z $key ]] && continue
+      repo=$(yq -r ".images.$key.repo" "$yaml")
+      cur=$(yq -r ".images.$key.digest // \"\"" "$yaml")
+      upstream=$(resolve_digest_from_upstream "$repo")
+      if [[ -n $upstream && $upstream != "$cur" ]]; then
+        echo "build: $svc.$key — upstream digest changed"
+        changed=1
+      fi
+    done < <(yq -r '.images | keys[]' "$yaml" 2>/dev/null)
+  fi
+  svc_changed[$svc]=$changed
+done
+
+n_changed=0
+for svc in "${selected[@]}"; do
+  [[ ${svc_changed[$svc]} == 1 ]] && ((n_changed++))
+done
+
+if [[ $n_changed == 0 ]]; then
+  echo "build: nothing changed since last successful build — skipping"
+  exit 0
+fi
+
+echo "build: $n_changed/${#selected[@]} services need rebuild/retest"
+changed_list=""
+for svc in "${selected[@]}"; do
+  [[ ${svc_changed[$svc]} == 1 ]] && changed_list="$changed_list $svc"
+done
+export CHANGED_SERVICES="${changed_list# }"
+
 # ─── helpers ─────────────────────────────────────────────────────────
 resolve_digest_from_upstream() {
   local repo=$1
@@ -101,9 +177,12 @@ do_build() {
   done
 
   echo "build: assembling final image ($tag) TEST_PRESEED=${TEST_PRESEED:-0}"
+  local full_sha
+  full_sha=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "")
   TAG=$tag REGISTRY=$REGISTRY IMAGE_NAME=$IMAGE_NAME \
     docker buildx bake $BAKE_FLAGS \
     --set "final.args.TEST_PRESEED=${TEST_PRESEED:-0}" \
+    --set "final.args.BUILD_SHA=${full_sha}" \
     -f "$BUILD_DIR/docker-bake.hcl" final
 }
 
