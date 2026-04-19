@@ -59,6 +59,7 @@ TAG_BUILD1="${MODE}-${SHA}-build1"
 TAG_BUILD2="${MODE}-${SHA}-build2"
 export REGISTRY IMAGE_NAME
 
+BASE_YAML=$REPO_ROOT/shared/base-packages.yaml
 BAKE_FLAGS=""
 if [[ ${NO_CACHE:-0} == 1 ]]; then
   BAKE_FLAGS="--pull --no-cache"
@@ -188,7 +189,6 @@ do_build() {
 
 # Backup every services/<svc>/service.yaml before mutating in place. Used
 # so we can revert if build #2 fails.
-BASE_YAML=$REPO_ROOT/shared/base-packages.yaml
 YAML_BACKUP=$BUILD_DIR/yaml-backup
 backup_yamls() {
   rm -rf "$YAML_BACKUP"
