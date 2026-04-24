@@ -47,27 +47,27 @@ RUN set -eux; \
 # Bakes answers.yaml + SSH key into the image so the qcow2 boots with the
 # wizard pre-answered and SSH accessible. Used by run-tests.sh. Production
 # builds leave TEST_PRESEED=0 (default) and this block is a no-op.
+#
+# SSH keys MUST NOT appear in the image — not in the final filesystem, not
+# in any intermediate layer, not in git. Using RUN --mount=type=bind reads
+# the key from the host build context at RUN time only, without ever
+# materializing it as a layer. The key lives solely in the build/test-preseed/
+# directory on the CI runner, and is deleted after the test cycle.
 ARG TEST_PRESEED=0
-RUN if [ "$TEST_PRESEED" = "1" ]; then \
+RUN --mount=type=bind,source=build/test-preseed,target=/preseed,ro \
+    if [ "$TEST_PRESEED" = "1" ]; then \
       set -eux; \
       install -d -m 0755 /etc/personal-server; \
       install -d -m 0700 /root/.ssh; \
-    fi
-COPY build/test-preseed/answers.yaml /tmp/test-preseed-answers.yaml
-COPY build/test-preseed/acme-credentials.yaml /tmp/test-preseed-acme-credentials.yaml
-COPY build/test-preseed/id_ed25519.pub /tmp/test-preseed-ssh.pub
-RUN if [ "$TEST_PRESEED" = "1" ]; then \
-      set -eux; \
-      cp /tmp/test-preseed-answers.yaml /etc/personal-server/answers.yaml; \
-      cp /tmp/test-preseed-acme-credentials.yaml /etc/personal-server/acme-credentials.yaml; \
+      cp /preseed/answers.yaml /etc/personal-server/answers.yaml; \
+      cp /preseed/acme-credentials.yaml /etc/personal-server/acme-credentials.yaml; \
       chmod 600 /etc/personal-server/acme-credentials.yaml; \
-      cp /tmp/test-preseed-ssh.pub /root/.ssh/authorized_keys; \
+      cp /preseed/id_ed25519.pub /root/.ssh/authorized_keys; \
       chmod 600 /root/.ssh/authorized_keys; \
       install -d -m 0755 /etc/systemd/system/personal-server-firstboot.service.d; \
       printf '[Service]\nStandardInput=null\nStandardOutput=journal\nStandardError=journal\nTTYPath=\nTTYReset=no\nTTYVHangup=no\n' \
         > /etc/systemd/system/personal-server-firstboot.service.d/no-tty.conf; \
-    fi; \
-    rm -f /tmp/test-preseed-*
+    fi
 
 # bootc requires this label
 LABEL containers.bootc="1"
