@@ -70,9 +70,10 @@ echo "build: mode=$MODE sha=$SHA services=${selected[*]} no_cache=${NO_CACHE:-0}
 
 resolve_digest_from_upstream() {
   local repo=$1
-  docker buildx imagetools inspect "${repo}:latest" \
+  local tag=${2:-latest}
+  docker buildx imagetools inspect "${repo}:${tag}" \
     --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || \
-  docker manifest inspect "${repo}:latest" 2>/dev/null \
+  docker manifest inspect "${repo}:${tag}" 2>/dev/null \
     | jq -r '.config.digest // .manifests[0].digest // ""' 2>/dev/null || true
 }
 
@@ -124,8 +125,9 @@ for svc in "${selected[@]}"; do
     while IFS= read -r key; do
       [[ -z $key ]] && continue
       repo=$(yq -r ".images.$key.repo" "$yaml")
+      tag=$(yq -r ".images.$key.tag // \"latest\"" "$yaml")
       cur=$(yq -r ".images.$key.digest // \"\"" "$yaml")
-      upstream=$(resolve_digest_from_upstream "$repo")
+      upstream=$(resolve_digest_from_upstream "$repo" "$tag")
       if [[ -n $upstream && $upstream != "$cur" ]]; then
         echo "build: $svc.$key — upstream digest changed"
         changed=1

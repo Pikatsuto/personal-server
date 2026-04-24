@@ -21,7 +21,11 @@ source "$REPO_ROOT/shared/lib/images.sh"
 WORKDIR=$(mktemp -d /var/tmp/ps-test-vm.XXXXXX)
 QCOW=$WORKDIR/disk.qcow2
 SSH_KEY=$REPO_ROOT/build/test-preseed/id_ed25519
+# Find a free SSH port to avoid collision with a leftover VM
 SSH_PORT=2222
+while ss -tlnp 2>/dev/null | grep -q ":${SSH_PORT} "; do
+  SSH_PORT=$((SSH_PORT + 1))
+done
 VM_PID=""
 
 cleanup() {
@@ -150,9 +154,10 @@ done
 # ── 6. Run tests ────────────────────────────────────────────────────
 resolve_digest_from_upstream() {
   local repo=$1
-  docker buildx imagetools inspect "${repo}:latest" \
+  local tag=${2:-latest}
+  docker buildx imagetools inspect "${repo}:${tag}" \
     --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || \
-  docker manifest inspect "${repo}:latest" 2>/dev/null \
+  docker manifest inspect "${repo}:${tag}" 2>/dev/null \
     | jq -r '.config.digest // .manifests[0].digest // ""' 2>/dev/null || true
 }
 
@@ -185,16 +190,17 @@ for svc_dir in "$REPO_ROOT"/services/*/; do
     while IFS= read -r key; do
       [[ -z $key ]] && continue
       repo=$(yq -r ".images.$key.repo" "$yaml")
+      tag=$(yq -r ".images.$key.tag // \"latest\"" "$yaml")
       case $MODE in
         --from-latest)
-          digest=$(resolve_digest_from_upstream "$repo")
+          digest=$(resolve_digest_from_upstream "$repo" "$tag")
           [[ -n $digest ]] && digests[$svc:$key]=$digest
-          ref="${repo}@${digest:-latest}"
+          ref="${repo}@${digest:-$tag}"
           ;;
         --from-yaml)
           digest=$(yq -r ".images.$key.digest // \"\"" "$yaml")
           if [[ -n $digest && $digest != null ]]; then ref="${repo}@${digest}"
-          else ref="${repo}:latest"; fi
+          else ref="${repo}:${tag}"; fi
           ;;
       esac
       KEY=${key^^}

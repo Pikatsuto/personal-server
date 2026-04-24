@@ -7,7 +7,8 @@
 #   images:
 #     <key>:
 #       repo: <registry>/<image>
-#       digest: ""        # empty → use :latest, set → use <repo>@<digest>
+#       tag: "16-alpine"  # optional, defaults to "latest"
+#       digest: ""        # empty → use <repo>:<tag>, set → use <repo>@<digest>
 #
 # resolve_service_images yaml_path
 #   Side effect: exports `IMAGE_<KEY>_REF` for every key found, where
@@ -38,13 +39,15 @@ resolve_service_images() {
   local key
   while IFS= read -r key; do
     [[ -z $key ]] && continue
-    local repo digest ref up
+    local repo tag digest ref up
     repo=$(yaml_get "$yaml" ".images.$key.repo")
+    tag=$(yaml_get "$yaml" ".images.$key.tag")
     digest=$(yaml_get "$yaml" ".images.$key.digest")
+    [[ -z $tag ]] && tag=latest
     if [[ -n $digest ]]; then
       ref="${repo}@${digest}"
     else
-      ref="${repo}:latest"
+      ref="${repo}:${tag}"
     fi
     up=${key^^}
     export "IMAGE_${up}_REF=$ref"
