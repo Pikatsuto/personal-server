@@ -2,8 +2,19 @@
 set -uo pipefail
 source /var/lib/personal-server/tests/lib.sh
 
-systemctl is-active --quiet personal-server-traefik.service \
-  || tests_fail "personal-server-traefik.service is not running"
+if ! systemctl is-active --quiet personal-server-traefik.service; then
+  echo "── systemctl status ──"
+  systemctl status personal-server-traefik.service --no-pager -l 2>&1 | head -30
+  echo "── journalctl -u personal-server-traefik (last 50) ──"
+  journalctl -u personal-server-traefik.service --no-pager -n 50 2>&1
+  echo "── wizard log around traefik ──"
+  journalctl -u personal-server-firstboot --no-pager 2>&1 | grep -B2 -A15 "traefik (start)" | head -40
+  echo "── rendered unit ──"
+  cat /etc/systemd/system/personal-server-traefik.service 2>&1 | head -30
+  echo "── docker ps ──"
+  docker ps -a 2>&1 | head -20
+  tests_fail "personal-server-traefik.service is not running"
+fi
 tests_log "traefik unit active"
 
 state=$(docker inspect -f '{{.State.Status}}' traefik 2>/dev/null || echo missing)
