@@ -26,19 +26,25 @@ if [[ -f $CREDS_FILE ]] && [[ $(yq 'length' "$CREDS_FILE") -gt 0 ]]; then
   yq -r 'to_entries[] | "\(.key)=\(.value)"' "$CREDS_FILE" >> "$ACME_ENV"
 fi
 
-# ── 2. Get a Keycloak admin token ───────────────────────────────────
+# ── 2. Create OIDC clients in Keycloak (best-effort) ────────────────
+# OIDC client creation can fail on a slow CI/first-boot (Keycloak's
+# master realm init is not instantaneous after the health endpoint
+# returns). The proxy itself doesn't need OIDC to start — the operator
+# can re-run this setup later with `personal-server reconfigure`.
+# Never let an OIDC blip prevent systemctl enable below.
 source /opt/personal-server/keycloak/lib/keycloak.sh
-KC_TOKEN=$(keycloak_admin_token)
-
-# Create OIDC client for traefik-forward-auth (confidential, with redirect URI)
-keycloak_ensure_client "$KC_TOKEN" "$REALM" "traefik-forward-auth" \
-  "${PS_TRAEFIK_FORWARD_AUTH_CLIENT_SECRET}" \
-  "https://*.${DOMAIN}/_oauth"
-
-# Create OIDC client for filebrowser (if filebrowser supports OIDC)
-keycloak_ensure_client "$KC_TOKEN" "$REALM" "filebrowser" \
-  "${PS_FILEBROWSER_CLIENT_SECRET}" \
-  "https://files.${DOMAIN}/api/auth/oidc/callback"
+if KC_TOKEN=$(keycloak_admin_token); then
+  keycloak_ensure_client "$KC_TOKEN" "$REALM" "traefik-forward-auth" \
+    "${PS_TRAEFIK_FORWARD_AUTH_CLIENT_SECRET}" \
+    "https://*.${DOMAIN}/_oauth" \
+    || echo "traefik: warn — forward-auth OIDC client create failed (keycloak transient), will retry on next reconfigure" >&2
+  keycloak_ensure_client "$KC_TOKEN" "$REALM" "filebrowser" \
+    "${PS_FILEBROWSER_CLIENT_SECRET}" \
+    "https://files.${DOMAIN}/api/auth/oidc/callback" \
+    || echo "traefik: warn — filebrowser OIDC client create failed (keycloak transient), will retry on next reconfigure" >&2
+else
+  echo "traefik: warn — keycloak admin token unavailable, skipping OIDC client creation (re-run with personal-server reconfigure)" >&2
+fi
 
 # ── 3. Generate dynamic config from every service's proxy: block ────
 DYNAMIC=$TRAEFIK_DIR/dynamic/services.yml
