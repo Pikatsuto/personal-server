@@ -84,8 +84,22 @@ fi
 # Patch APP_URL to match the operator's domain (the installer leaves a default).
 sed -i "s|^APP_URL=.*|APP_URL=https://coolify.${DOMAIN}|" /data/coolify/source/.env
 
+# The Coolify installer brings up its bundled Traefik (`coolify-proxy`)
+# which binds 80/443/8080 — the same ports personal-server's own Traefik
+# needs. Our compose.override.yml has `profiles: ["disabled"]` for the
+# traefik service so future `docker compose up` calls never restart it,
+# but we still have to kill the instance the installer already started.
+docker stop coolify-proxy 2>/dev/null || true
+docker rm coolify-proxy 2>/dev/null || true
+
 # Re-apply labels in case the installer created new files/dirs
 restorecon -Rv /var/lib/coolify 2>/dev/null || true
 
 systemctl daemon-reload
 systemctl enable --now personal-server-coolify.service
+
+# If personal-server-traefik tried to start earlier but lost the port
+# race against coolify-proxy, its oneshot ExecStart failed and it's now
+# inactive. With coolify-proxy gone, restart it so the ports are taken
+# by our proxy. No-op if traefik is already active.
+systemctl restart personal-server-traefik.service 2>/dev/null || true

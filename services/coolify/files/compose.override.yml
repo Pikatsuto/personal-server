@@ -1,13 +1,24 @@
-# Compose override merged on top of Coolify's stock docker-compose.yml. Its
-# only role is to label every container in the Coolify stack with
-# `com.centurylinklabs.watchtower.enable=false` so the host's watchtower
-# leaves them alone — Coolify ships its own DB-aware AUTOUPDATE for those.
+# Compose override merged on top of Coolify's stock docker-compose.yml.
+# Two roles:
+#
+# 1. Label every container in the Coolify stack with
+#    `com.centurylinklabs.watchtower.enable=false` so the host's watchtower
+#    leaves them alone — Coolify ships its own DB-aware AUTOUPDATE for those.
+#
+# 2. Disable Coolify's bundled Traefik (service name `traefik`, container
+#    `coolify-proxy`). personal-server runs its own Traefik in front of
+#    every service, so Coolify's proxy would race for ports 80/443/8080
+#    and either crash-loop or block ours. The dummy profiles value keeps
+#    the service defined (so compose validates) but prevents docker compose
+#    from starting it unless --profile=disabled is explicitly passed.
 #
 # Apps that Coolify deploys for the user (beyond this stack) are NOT
 # labelled because Coolify offers no global default-labels mechanism (and
 # hot-patching its PHP code would break on every Coolify upstream change).
 # Watchtower DOES touch those user-deployed apps — accepted trade-off.
 services:
+  traefik:
+    profiles: ["disabled"]
   coolify:
     labels:
       com.centurylinklabs.watchtower.enable: "false"
