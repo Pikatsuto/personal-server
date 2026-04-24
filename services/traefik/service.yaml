@@ -1,0 +1,66 @@
+---
+name: traefik
+display_name: Traefik
+description: Reverse proxy + TLS with ACME (Let's Encrypt via DNS challenge). Bundled with traefik-forward-auth (OIDC middleware via Keycloak) and filebrowser (web UI to edit the dynamic config).
+depends_on: [docker, keycloak]
+build:
+  packages: []
+  install_script: install.sh
+storage:
+  data_path: /var/lib/personal-server/traefik
+  pool_key: traefik
+  default_dataset_name: traefik
+  migration_strategy: rsync-only
+runtime:
+  systemd_units:
+    - personal-server-traefik.service
+  stop_cmd: systemctl stop personal-server-traefik
+  start_cmd: systemctl start personal-server-traefik
+  health:
+    type: http
+    url: http://localhost:8080/ping
+images:
+  traefik:
+    repo: docker.io/traefik
+    digest: "sha256:f2643fcbc11d5d9b0f728fa3095bca46957c939201f4fde0e54828dc1d76b54a"
+  forward_auth:
+    # mesosphere's fork of thomseddon/traefik-forward-auth — adds generic
+    # OIDC provider support (PROVIDER_URI). On Docker Hub only, not GHCR.
+    repo: docker.io/mesosphere/traefik-forward-auth
+    digest: "sha256:2fae7e3bf44020f5fe22d733a041efad73c33aee8094975e4f9380dfc71715a0"
+  filebrowser:
+    repo: ghcr.io/gtsteffaniak/filebrowser
+    digest: "sha256:d5d2cb23f49e9e0a77ab12dca92a2b1bcc5deb11d8ce3c23b2175297d4a1182b"
+secrets:
+  - key: traefik_forward_auth_secret
+    generate: "openssl rand -hex 32"
+  - key: traefik_forward_auth_client_secret
+    generate: "openssl rand -hex 32"
+  - key: filebrowser_client_secret
+    generate: "openssl rand -hex 32"
+wizard:
+  questions:
+    - key: domain
+      prompt: "Root domain (e.g. home.example.com)"
+      required: true
+    - key: acme_email
+      prompt: "Email for Let's Encrypt notifications"
+      required: true
+    - key: acme_dns_provider
+      prompt: "DNS provider for ACME wildcard (any Lego name)"
+      default: cloudflare
+    - key: acme_dns_credentials
+      prompt: "DNS provider credentials (env vars for Lego)"
+      type: secret_map
+proxy:
+  subdomain: files
+  upstream: http://filebrowser:80
+  auth: public # OIDC handled natively by filebrowser (see sso block below)
+sso:
+  method: file # filebrowser config is rendered by render-all-units.sh
+  client_id: filebrowser
+  secret_var: filebrowser_client_secret
+test:
+  script: test.sh
+configure:
+  first_boot: configure.sh

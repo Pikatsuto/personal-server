@@ -30,13 +30,16 @@ runtime:
   health:
     type: exec
     url: incus info >/dev/null 2>&1
-sso:
-  type: proxy-auth
 proxy:
-  resource_name: incus
   subdomain: incus
   upstream: https://host.docker.internal:8443
-  auth: proxy-auth
+  auth: sso
+sso:
+  method: exec
+  script: |
+    incus config set oidc.issuer "https://auth.${PS_DOMAIN}/realms/personal-server"
+    incus config set oidc.client.id "incus"
+    incus config set oidc.audience "incus"
 wizard:
   questions:
     - key: pool_incus

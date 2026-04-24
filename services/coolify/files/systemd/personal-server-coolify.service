@@ -1,6 +1,6 @@
 [Unit]
-Description=Coolify (proxy bypassed by Pangolin Traefik via shared `coolify` network)
-After=docker.service personal-server-pangolin.service
+Description=Coolify (reverse-proxied by our Traefik via shared `coolify` network)
+After=docker.service personal-server-traefik.service
 Requires=docker.service
 
 [Service]

@@ -28,13 +28,10 @@ runtime:
   health:
     type: http
     url: http://localhost:26619
-sso:
-  type: proxy-auth
 proxy:
-  resource_name: webzfs
   subdomain: zfs
   upstream: http://host.docker.internal:26619
-  auth: proxy-auth
+  auth: forward-auth
 test:
   script: test.sh
 configure:

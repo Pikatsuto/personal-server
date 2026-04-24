@@ -27,10 +27,8 @@ Thumbs.db
 # location on a deployed server is /etc/personal-server/ (outside the repo),
 # but be paranoid anyway.
 acme.env
-pangolin-api-key
-pocketid-api-key
 coolify-root.txt
-pangolin-server-secret
+keycloak-admin.txt
 *.pem
 *.key
 

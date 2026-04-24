@@ -1,0 +1,67 @@
+# Rendered into /var/lib/personal-server/keycloak/docker-compose.yml at every boot.
+# Keycloak is reachable via Traefik at https://auth.${PS_DOMAIN}, and on localhost:8180
+# for the wizard's API calls during first-boot.
+name: keycloak
+services:
+  postgres:
+    image: ${IMAGE_POSTGRES_REF}
+    container_name: keycloak-db
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${PS_KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: ${IMAGE_KEYCLOAK_REF}
+    container_name: keycloak
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: start
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${PS_KEYCLOAK_DB_PASSWORD}
+      KC_HOSTNAME: https://auth.${PS_DOMAIN}
+      # Accept admin/backchannel requests from any hostname (e.g. internal
+      # docker DNS "keycloak:8080" used by traefik-forward-auth).
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${PS_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${PS_ADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:8180:8080"
+      - "127.0.0.1:9180:9000"
+    # Keycloak UBI image has NO curl and NO wget. Bash is present, so we
+    # use its builtin /dev/tcp to poll the management port 9000 /health/ready.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: x\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  keycloak-db:
+    name: keycloak-db
+
+networks:
+  default:
+    name: coolify
+    external: true

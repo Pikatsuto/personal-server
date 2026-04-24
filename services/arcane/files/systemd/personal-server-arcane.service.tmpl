@@ -8,16 +8,14 @@ Type=simple
 Restart=on-failure
 RestartSec=5s
 EnvironmentFile=/etc/personal-server/arcane.env
+EnvironmentFile=-/etc/personal-server/arcane-oidc.env
 ExecStartPre=-/usr/bin/docker rm -f personal-server-arcane
 ExecStart=/usr/bin/docker run --rm --name personal-server-arcane \
   --label com.centurylinklabs.watchtower.enable=false \
   --network coolify \
   -p 127.0.0.1:3552:3552 \
-  -e APP_URL=${APP_URL} \
-  -e ENCRYPTION_KEY=${ENCRYPTION_KEY} \
-  -e JWT_SECRET=${JWT_SECRET} \
-  -e PUID=${PUID} \
-  -e PGID=${PGID} \
+  --env-file /etc/personal-server/arcane.env \
+  --env-file /etc/personal-server/arcane-oidc.env \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /var/lib/personal-server/arcane:/app/data \
   ${IMAGE_ARCANE_REF}

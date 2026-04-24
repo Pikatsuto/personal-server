@@ -18,6 +18,7 @@ set -euo pipefail
 LIB=/opt/personal-server/lib
 source "$LIB/yaml.sh"
 source "$LIB/images.sh"
+source "$LIB/env-loader.sh"
 
 SERVICES_DIR=/etc/personal-server/services
 ANSWERS=/etc/personal-server/answers.yaml
@@ -28,15 +29,11 @@ RUNTIME_BASE=/var/lib/personal-server
 
 install -d -m 0755 /etc/systemd/system "$SECRETS_DIR" "$RUNTIME_BASE"
 
-# ── Load answers into env (PS_<KEY>=<value>) ─────────────────────────
-if [[ -f $ANSWERS ]]; then
-  while IFS= read -r key; do
-    [[ -z $key ]] && continue
-    val=$(yq -r ".[\"$key\"] // \"\"" "$ANSWERS")
-    up=${key^^}
-    export "PS_${up}=$val"
-  done < <(yq -r 'keys[]' "$ANSWERS" 2>/dev/null)
-fi
+# Load answers + every service's config: block into PS_* env vars.
+# Secrets are loaded per-service in the loop below (because some might
+# need to be generated first via the secrets.generate script).
+ps_load_answers
+ps_load_service_configs
 
 # ── Per-service loop ─────────────────────────────────────────────────
 for svc_dir in "$SERVICES_DIR"/*/; do
@@ -64,10 +61,7 @@ for svc_dir in "$SERVICES_DIR"/*/; do
     export "PS_${up}=$(<"$secret_file")"
   done < <(yq -r '(.secrets // [])[].key' "$yaml" 2>/dev/null)
 
-  # 3. Build the full envsubst whitelist (images + answers + secrets).
-  #    We MUST whitelist so that systemd runtime vars like ${APP_URL} in
-  #    unit templates are NOT touched by envsubst (they're resolved at
-  #    runtime by systemd from EnvironmentFile=).
+  # 3. Build the full envsubst whitelist (images + answers + secrets + config).
   whitelist="$img_whitelist"
   if [[ -f $ANSWERS ]]; then
     while IFS= read -r key; do
@@ -79,6 +73,16 @@ for svc_dir in "$SERVICES_DIR"/*/; do
     [[ -z $key ]] && continue
     whitelist="$whitelist \$PS_${key^^}"
   done < <(yq -r '(.secrets // [])[].key' "$yaml" 2>/dev/null)
+  # Add every service's config.* as whitelisted vars (so Traefik's tmpl
+  # can reference ${PS_KEYCLOAK_REALM} for example)
+  for other_yaml in "$SERVICES_DIR"/*/service.yaml; do
+    [[ -f $other_yaml ]] || continue
+    other_svc=$(basename "$(dirname "$other_yaml")")
+    while IFS= read -r ckey; do
+      [[ -z $ckey ]] && continue
+      whitelist="$whitelist \$PS_${other_svc^^}_${ckey^^}"
+    done < <(yq -r '(.config // {}) | keys[]' "$other_yaml" 2>/dev/null)
+  done
 
   # 4. Render systemd .tmpl → /etc/systemd/system/
   if [[ -d $svc_dir/files/systemd ]]; then

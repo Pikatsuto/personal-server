@@ -1,0 +1,17 @@
+# FileBrowser Quantum config. Rendered at every boot by render-all-units.sh.
+server:
+  port: 80
+  baseURL: ""
+  sources:
+    - path: /srv
+      name: traefik-dynamic
+auth:
+  methods:
+    oidc:
+      enabled: true
+      clientId: "filebrowser"
+      clientSecret: "${PS_FILEBROWSER_CLIENT_SECRET}"
+      issuerUrl: "https://auth.${PS_DOMAIN}/realms/${PS_KEYCLOAK_REALM}"
+      scopes: "email openid profile"
+      userIdentifier: "preferred_username"
+      createUser: true

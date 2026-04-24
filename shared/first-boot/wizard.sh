@@ -71,13 +71,14 @@ for entry in "${questions[@]}"; do
 
   if [[ $qtype == secret_map ]]; then
     # Secret map: collect key=value pairs until blank. Ask if the
-    # credentials file is missing or empty (just "---").
+    # credentials file is missing or empty (just "---"), AND a TTY is
+    # available. Otherwise skip — CI/headless boots must pre-seed the file.
     CREDS_FILE=$CONF_DIR/acme-credentials.yaml
     has_creds=0
     if [[ -f $CREDS_FILE ]] && [[ $(yq 'length' "$CREDS_FILE" 2>/dev/null) -gt 0 ]]; then
       has_creds=1
     fi
-    if [[ $has_creds == 0 ]]; then
+    if [[ $has_creds == 0 ]] && (true </dev/tty) 2>/dev/null; then
       echo
       echo "$prompt (env vars for the provider). Leave blank to stop."
       echo '---' > "$CREDS_FILE"
@@ -108,17 +109,23 @@ for entry in "${questions[@]}"; do
     fi
   fi
 
+  # -s (silent) for secret-type questions to mask password input.
+  read_flags="-r"
+  [[ $qtype == secret ]] && read_flags="-r -s"
   if [[ -n $default ]]; then
-    read -r -p "$prompt [$default]: " ans </dev/tty
+    read $read_flags -p "$prompt [$default]: " ans </dev/tty
+    [[ $qtype == secret ]] && echo
     ans=${ans:-$default}
   elif [[ $required == true ]]; then
     while :; do
-      read -r -p "$prompt: " ans </dev/tty
+      read $read_flags -p "$prompt: " ans </dev/tty
+      [[ $qtype == secret ]] && echo
       [[ -n $ans ]] && break
       echo "  (required)"
     done
   else
-    read -r -p "$prompt: " ans </dev/tty
+    read $read_flags -p "$prompt: " ans </dev/tty
+    [[ $qtype == secret ]] && echo
   fi
   set_answer "$key" "$ans"
 done
@@ -256,11 +263,17 @@ for svc in "${ordered[@]}"; do
   echo "  $svc: $st"
 done
 
-# ── Post-configure: write the first-boot checklist ───────────────────
-if [[ -x $CONF_DIR/first-boot/apply-domain.sh ]]; then
-  echo "wizard: writing first-boot checklist…"
-  "$CONF_DIR/first-boot/apply-domain.sh" || echo "wizard: apply-domain exited $?"
-fi
+# ── Post-configure hooks: generic. Run any service's post-configure.sh
+# after ALL services have finished their own configure.sh. Services use
+# this to do cross-service setup (e.g., the IdP service creates OIDC
+# clients for every service with a `sso:` block).
+echo
+for svc in "${ordered[@]}"; do
+  hook=$SERVICES_DIR/$svc/post-configure.sh
+  [[ -x $hook ]] || continue
+  echo "wizard: post-configure → $svc"
+  "$hook" || echo "wizard: $svc post-configure exited $?"
+done
 
 # Set fish as default shell for all non-system users (if fish is installed)
 if command -v fish >/dev/null 2>&1; then
@@ -274,11 +287,36 @@ fi
 
 touch "$CONF_DIR/.configured"
 
-# Display the checklist so the user knows what manual steps remain
-if [[ -f $CONF_DIR/first-boot-checklist.txt ]]; then
+# Summary with admin URLs and credentials. Services declare their own
+# credentials file via `credentials_file:` in service.yaml; the summary
+# just iterates. Zero hardcoded service names.
+DOMAIN=${PS_DOMAIN:-unknown}
+{
   echo
-  cat "$CONF_DIR/first-boot-checklist.txt"
-fi
+  echo "================================================================"
+  echo "  personal-server — ready"
+  echo "================================================================"
+  for yaml in "$SERVICES_DIR"/*/service.yaml; do
+    [[ -f $yaml ]] || continue
+    creds_file=$(yq -r '.credentials_file // ""' "$yaml")
+    [[ -z $creds_file || ! -f $creds_file ]] && continue
+    name=$(yq -r '.display_name // .name' "$yaml")
+    echo
+    echo "  $name credentials:"
+    sed 's/^/    /' "$creds_file"
+  done
+  echo
+  echo "  Services:"
+  for yaml in "$SERVICES_DIR"/*/service.yaml; do
+    t=$(yq -r '.proxy // "" | type' "$yaml")
+    [[ $t == "!!map" ]] || continue
+    name=$(yq -r '.name' "$yaml")
+    sub=$(yq -r '.proxy.subdomain // .name' "$yaml")
+    printf '    %-15s https://%s.%s\n' "$name" "$sub" "$DOMAIN"
+  done
+  echo
+  echo "================================================================"
+} | tee "$CONF_DIR/first-boot-summary.txt"
 
 echo
 echo "wizard: done. log: $LOG"

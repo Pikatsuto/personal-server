@@ -1,0 +1,59 @@
+# Rendered into /var/lib/personal-server/traefik/docker-compose.yml at every boot.
+name: traefik
+services:
+  traefik:
+    image: ${IMAGE_TRAEFIK_REF}
+    container_name: traefik
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./letsencrypt:/letsencrypt
+    env_file:
+      - ./acme.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  forward-auth:
+    image: ${IMAGE_FORWARD_AUTH_REF}
+    container_name: traefik-forward-auth
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    environment:
+      SECRET: "${PS_TRAEFIK_FORWARD_AUTH_SECRET}"
+      # Discovery backchannel via internal docker DNS (keycloak container
+      # on the shared coolify network). Keycloak is started with
+      # KC_HOSTNAME_STRICT=false so it accepts requests from any hostname.
+      PROVIDER_URI: "http://keycloak:8080/realms/${PS_KEYCLOAK_REALM}"
+      CLIENT_ID: "traefik-forward-auth"
+      CLIENT_SECRET: "${PS_TRAEFIK_FORWARD_AUTH_CLIENT_SECRET}"
+      COOKIE_DOMAIN: "${PS_DOMAIN}"
+      AUTH_HOST: "auth.${PS_DOMAIN}"
+      URL_PATH: "/_oauth"
+      LOG_LEVEL: info
+      INSECURE_COOKIE: "true"
+
+  filebrowser:
+    image: ${IMAGE_FILEBROWSER_REF}
+    container_name: filebrowser
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    volumes:
+      - ./dynamic:/srv
+      - ./filebrowser-data:/home/filebrowser/data
+    # Quantum reads config from /home/filebrowser/data/config.yaml by default.
+    # The data dir (mounted above) also holds the database.db.
+
+networks:
+  default:
+    name: coolify
+    external: true

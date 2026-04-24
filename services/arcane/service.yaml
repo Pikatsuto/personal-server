@@ -2,7 +2,7 @@
 name: arcane
 display_name: Arcane
 description: Web UI for Docker host management
-depends_on: [docker, pangolin]
+depends_on: [docker, traefik]
 build:
   packages: []
   install_script: install.sh
@@ -19,21 +19,31 @@ runtime:
   health:
     type: http
     url: http://localhost:3552
-sso:
-  type: proxy-auth
 proxy:
-  resource_name: arcane
   subdomain: docker
   upstream: http://personal-server-arcane:3552
-  auth: proxy-auth
+  auth: sso
+sso:
+  method: env
+  # Separate file from arcane.env (app secrets) to avoid clobbering
+  env_file: /etc/personal-server/arcane-oidc.env
+  vars:
+    OIDC_ENABLED: "true"
+    OIDC_CLIENT_ID: "arcane"
+    OIDC_CLIENT_SECRET: "${PS_ARCANE_OIDC_CLIENT_SECRET}"
+    OIDC_ISSUER_URL: "https://auth.${PS_DOMAIN}/realms/${PS_KEYCLOAK_REALM}"
+    OIDC_ADMIN_CLAIM: "groups"
+    OIDC_ADMIN_VALUE: "admin"
 images:
   arcane:
     repo: ghcr.io/getarcaneapp/arcane
-    digest: "sha256:97492274e59c9f822a9c49d67981912b81919c0edad6094e496fa3507348082e"
+    digest: "sha256:6d8a51ddca2399106ea20da9db17271a91dd97150cada449aba4edce2ae682c2"
 secrets:
   - key: arcane_encryption_key
     generate: "openssl rand -hex 32"
   - key: arcane_jwt_secret
+    generate: "openssl rand -hex 32"
+  - key: arcane_oidc_client_secret
     generate: "openssl rand -hex 32"
 wizard:
   questions:

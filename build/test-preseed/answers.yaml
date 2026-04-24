@@ -1,3 +1,6 @@
 domain: "ci-test.local"
 acme_email: "ci@example.invalid"
 acme_dns_provider: "manual"
+admin_username: "citest"
+admin_email: "admin@ci-test.local"
+admin_password: "CiTestPassw0rd!"

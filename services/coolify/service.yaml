@@ -2,11 +2,9 @@
 name: coolify
 display_name: Coolify
 description: Self-hosted PaaS. Its bundled Traefik is bypassed by joining the
-             shared `coolify` Docker network with the Pangolin Traefik, which
-             discovers Coolify-deployed apps via their auto-generated traefik.*
-             labels (Coolify's `generate_exact_labels=false` default emits
-             Traefik labels even when the server's proxy_type is `none`).
-depends_on: [docker, pangolin]
+             shared `coolify` Docker network with our Traefik, which discovers
+             Coolify-deployed apps via their auto-generated traefik.* labels.
+depends_on: [docker, traefik]
 build:
   packages: []
   install_script: install.sh
@@ -23,16 +21,16 @@ runtime:
   health:
     type: http
     url: http://localhost:8000
-sso:
-  type: oidc
 proxy:
-  resource_name: coolify
   subdomain: coolify
   upstream: http://coolify:8080
-  auth: pocketid
+  # No OIDC auth: waiting on Coolify PR #6696 for generic OIDC provider
+  # support. Until then, Coolify manages its own login/password.
+  auth: public
+credentials_file: /etc/personal-server/coolify-root.txt
 secrets:
-  - key: coolify_root_password
-    generate: "openssl rand -base64 24"
+  - key: coolify_oidc_client_secret
+    generate: "openssl rand -hex 32"
 wizard:
   questions:
     - key: domain
@@ -41,16 +39,6 @@ wizard:
     - key: acme_email
       prompt: "Email for Let's Encrypt notifications"
       required: true
-checklist:
-  priority: 3
-  steps:
-    - title: "Open Coolify and disable its proxy"
-      token_file: /etc/personal-server/coolify-root.txt
-      body: |
-        URL:      https://coolify.${PS_DOMAIN}
-        Then:     Servers → localhost → Proxy → None → Save
-                  (stops Coolify from spawning coolify-proxy on
-                   ports 80/443 already held by Pangolin Traefik)
 test:
   script: test.sh
 configure:

@@ -22,5 +22,11 @@ EOF
 fi
 
 install -d -m 0755 /var/lib/personal-server/arcane
-# Network `coolify` is created by pangolin's compose (depends_on: pangolin).
+
+# OIDC env file is written by keycloak/post-configure.sh after Keycloak is up.
+# Create an empty placeholder so systemd + docker --env-file don't fail.
+OIDC_ENV=/etc/personal-server/arcane-oidc.env
+[[ -f $OIDC_ENV ]] || { : > "$OIDC_ENV"; chmod 600 "$OIDC_ENV"; }
+
+docker network create coolify 2>/dev/null || true
 systemctl enable --now personal-server-arcane.service

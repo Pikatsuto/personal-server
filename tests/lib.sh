@@ -57,8 +57,8 @@ wait_for_http() {
 # wait_for_http_in_container <container> <port> [<path>] [<expected>] [<max>]
 # Polls a URL using a curl sidecar that JOINS the target container's
 # network namespace via `--network container:<name>`. Use this when the
-# target service is running in a sibling Docker container (PocketID,
-# Arcane, Pangolin compose stack…) — the test container's localhost cannot
+# target service is running in a sibling Docker container (Keycloak,
+# Traefik, Coolify stack, Arcane…) — the test container's localhost cannot
 # reach a port on a sibling, so we need to be IN its netns.
 CURL_SIDECAR_IMAGE=${CURL_SIDECAR_IMAGE:-curlimages/curl:latest}
 wait_for_http_in_container() {
