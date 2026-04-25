@@ -27,14 +27,17 @@ services:
     restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: "false"
+    # Resolve auth.${PS_DOMAIN} to the docker host gateway. Keycloak's
+    # announced issuer is the public URL (KC_HOSTNAME), so OIDC discovery
+    # must reach Keycloak via that URL to satisfy the issuer-equality
+    # check. The public URL → public IP → routers without NAT hairpin
+    # would refuse the connection (and even with hairpin it'd be a useless
+    # roundtrip). host-gateway sends the request straight to the docker
+    # bridge gateway where docker-proxy forwards 443 to our own Traefik.
+    extra_hosts:
+      - "auth.${PS_DOMAIN}:host-gateway"
     environment:
       SECRET: "${PS_TRAEFIK_FORWARD_AUTH_SECRET}"
-      # OIDC discovery URL must match Keycloak's announced issuer, which
-      # is fixed at https://auth.${PS_DOMAIN} by KC_HOSTNAME. Discovering
-      # via the docker-internal http://keycloak:8080/... fails the OIDC
-      # client's issuer-equality check (mesosphere/traefik-forward-auth
-      # treats it as fatal). Use the public URL — it loops back through
-      # our own Traefik to keycloak in a few ms.
       PROVIDER_URI: "https://auth.${PS_DOMAIN}/realms/${PS_KEYCLOAK_REALM}"
       CLIENT_ID: "traefik-forward-auth"
       CLIENT_SECRET: "${PS_TRAEFIK_FORWARD_AUTH_CLIENT_SECRET}"
@@ -50,6 +53,9 @@ services:
     restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: "false"
+    # Same OIDC discovery loopback as forward-auth — see comment there.
+    extra_hosts:
+      - "auth.${PS_DOMAIN}:host-gateway"
     volumes:
       - ./dynamic:/srv
       - ./filebrowser-data:/home/filebrowser/data
