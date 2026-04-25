@@ -221,13 +221,16 @@ run_configure() {
 
   if [[ -x $cfg ]]; then
     echo "wizard: → $svc (start)"
-    if "$cfg"; then
+    local rc=0
+    "$cfg" || rc=$?
+    if [[ $rc -eq 0 ]]; then
       install -d -m 0755 "$CONFIGURED_DIR"
       date -u +%Y-%m-%dT%H:%M:%SZ > "$CONFIGURED_DIR/$svc"
       echo "wizard: → $svc (done)"
     else
-      echo "wizard: → $svc (exited $?)"
+      echo "wizard: → $svc (exited $rc)"
     fi
+    return $rc
   fi
 }
 
