@@ -17,6 +17,12 @@ DOMAIN=${PS_DOMAIN:?}
 KC_LOCAL=http://localhost:8180
 REALM=personal-server
 
+# Make sure the runtime tree exists. install.sh stages templates into
+# /opt/personal-server/traefik/, but the runtime dirs in /var/lib/… are
+# our responsibility — including the dynamic/ subtree where we write
+# the Traefik file-provider config a few steps below.
+install -d -m 0755 "$TRAEFIK_DIR" "$TRAEFIK_DIR/dynamic" "$TRAEFIK_DIR/letsencrypt"
+
 # ── 1. acme.env from the credentials file ───────────────────────────
 ACME_ENV=$TRAEFIK_DIR/acme.env
 : > "$ACME_ENV"
