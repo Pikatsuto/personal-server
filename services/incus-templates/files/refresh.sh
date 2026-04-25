@@ -61,8 +61,12 @@ for entry in "${desired[@]}"; do
 
   if incus image alias list -f csv 2>/dev/null | grep -q "^${alias},"; then
     # Alias exists. Compare its release against the desired one.
-    fp=$(incus image alias list -f csv | awk -F, -v a="$alias" '$1==a {print $3}')
-    cur_rel=$(incus image show "$fp" 2>/dev/null | yq -r '.properties.release // ""')
+    # `incus image alias list -f csv` columns: ALIAS,FINGERPRINT,DESCRIPTION.
+    # We need the fingerprint ($2), not the description ($3) — the previous
+    # version read $3, leaving fp empty, so `incus image show ""` failed and
+    # (with pipefail) killed the whole script before any update ran.
+    fp=$(incus image alias list -f csv | awk -F, -v a="$alias" '$1==a {print $2}')
+    cur_rel=$(incus image show "$fp" 2>/dev/null | yq -r '.properties.release // ""' || echo "")
     if [[ $cur_rel == "$want_rel" ]]; then
       echo "incus-template-refresh: $alias on $cur_rel — refresh"
       incus image refresh "$fp" || echo "  refresh failed (continuing)"
