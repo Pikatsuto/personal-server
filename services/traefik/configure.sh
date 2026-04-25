@@ -70,6 +70,19 @@ DYNAMIC=$TRAEFIK_DIR/dynamic/services.yml
   echo "        authResponseHeaders:"
   echo "          - X-Forwarded-User"
   echo "  routers:"
+  # forward-auth's auth-host mode: the OIDC callback comes back to
+  # https://auth.<domain>/_oauth — but auth.<domain> is otherwise routed
+  # to Keycloak, which doesn't know /_oauth and returns 'Page not found'.
+  # Add a higher-priority router that catches /_oauth on the auth host
+  # and sends it to the forward-auth container; everything else on
+  # auth.<domain> still falls through to Keycloak's regular router.
+  echo "    forward-auth-callback:"
+  echo "      rule: \"Host(\`auth.${DOMAIN}\`) && PathPrefix(\`/_oauth\`)\""
+  echo "      service: forward-auth"
+  echo "      priority: 100"
+  echo "      entryPoints: [websecure]"
+  echo "      tls:"
+  echo "        certResolver: letsencrypt"
   for yaml in "$SERVICES_DIR"/*/service.yaml; do
     [[ -f $yaml ]] || continue
     t=$(yq -r '.proxy // "" | type' "$yaml")
@@ -92,6 +105,10 @@ DYNAMIC=$TRAEFIK_DIR/dynamic/services.yml
     esac
   done
   echo "  services:"
+  echo "    forward-auth:"
+  echo "      loadBalancer:"
+  echo "        servers:"
+  echo "          - url: \"http://forward-auth:4181\""
   for yaml in "$SERVICES_DIR"/*/service.yaml; do
     [[ -f $yaml ]] || continue
     t=$(yq -r '.proxy // "" | type' "$yaml")
