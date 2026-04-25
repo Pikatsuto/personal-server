@@ -40,9 +40,14 @@ fi
 # Never let an OIDC blip prevent systemctl enable below.
 source /opt/personal-server/keycloak/lib/keycloak.sh
 if KC_TOKEN=$(keycloak_admin_token); then
+  # forward-auth uses a SINGLE central /_oauth callback at AUTH_HOST
+  # (auth.${DOMAIN}/_oauth), regardless of which protected subdomain
+  # initiated the login. Register that exact URI — Keycloak's wildcard
+  # matching on subdomains in the host part is flaky depending on
+  # version and refused with 'Invalid parameter: redirect_uri' here.
   keycloak_ensure_client "$KC_TOKEN" "$REALM" "traefik-forward-auth" \
     "${PS_TRAEFIK_FORWARD_AUTH_CLIENT_SECRET}" \
-    "https://*.${DOMAIN}/_oauth" \
+    "https://auth.${DOMAIN}/_oauth" \
     || echo "traefik: warn — forward-auth OIDC client create failed (keycloak transient), will retry on next reconfigure" >&2
   keycloak_ensure_client "$KC_TOKEN" "$REALM" "filebrowser" \
     "${PS_FILEBROWSER_CLIENT_SECRET}" \
