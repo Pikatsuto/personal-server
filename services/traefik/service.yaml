@@ -22,7 +22,7 @@ runtime:
 images:
   traefik:
     repo: docker.io/traefik
-    digest: "sha256:4cda3393930dceff030e144b46260e96e1337c9cfaa4fed81c90cb8f4d498f57"
+    digest: "sha256:8cb20d16e01a53d8d7f7696ac2f1af7d200d5c9984d226ce2299731d9eab6d6c"
   forward_auth:
     # mesosphere's fork of thomseddon/traefik-forward-auth — adds generic
     # OIDC provider support (PROVIDER_URI). On Docker Hub only, not GHCR.
@@ -30,7 +30,7 @@ images:
     digest: "sha256:2fae7e3bf44020f5fe22d733a041efad73c33aee8094975e4f9380dfc71715a0"
   filebrowser:
     repo: ghcr.io/gtsteffaniak/filebrowser
-    digest: "sha256:d5d2cb23f49e9e0a77ab12dca92a2b1bcc5deb11d8ce3c23b2175297d4a1182b"
+    digest: "sha256:68e8efbc21661f5247e9b100009529bc750d38c3e502733d20e134713cc99762"
 secrets:
   - key: traefik_forward_auth_secret
     generate: "openssl rand -hex 32"

@@ -10,7 +10,7 @@
 # of this whole project is zero-maintenance auto-bumps.
 base_image:
   repo: quay.io/almalinuxorg/almalinux-bootc
-  digest: "sha256:b6c1ccb9c9c89d15b12bc57e74980beb213960248162855dbf2f98a71776978e" # pinned by CI after successful test, empty = :latest
+  digest: "sha256:8dd3b4bbf05e2ab9debf1cf16f8863695fe309296848b2f5c96a3c43e6723da7" # pinned by CI after successful test, empty = :latest
 # ZFS install needs a 3-step dance (release rpm → switch repo → install) that
 # yq can't express, so it lives in shared/lib/install-base.sh which is called
 # by the base-common stage in build/templates/Dockerfile.tmpl. Only the
