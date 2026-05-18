@@ -37,7 +37,7 @@ sso:
 images:
   arcane:
     repo: ghcr.io/getarcaneapp/arcane
-    digest: "sha256:6d8a51ddca2399106ea20da9db17271a91dd97150cada449aba4edce2ae682c2"
+    digest: "sha256:cc8e6e3a4a91b962dfc8a18b7291fd040a78b90a5baacd19df7a473e6730ce88"
 secrets:
   - key: arcane_encryption_key
     generate: "openssl rand -hex 32"

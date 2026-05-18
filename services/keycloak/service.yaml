@@ -26,7 +26,7 @@ images:
   postgres:
     repo: docker.io/postgres
     tag: 16-alpine
-    digest: "sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50"
+    digest: "sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229"
 # `config:` block — arbitrary service-specific config values. Each key is
 # exported by render-all-units.sh as PS_<SERVICE>_<KEY> so any other
 # service's template can reference it (e.g. ${PS_KEYCLOAK_REALM}).
