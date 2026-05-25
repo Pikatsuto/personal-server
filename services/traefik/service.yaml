@@ -30,7 +30,7 @@ images:
     digest: "sha256:2fae7e3bf44020f5fe22d733a041efad73c33aee8094975e4f9380dfc71715a0"
   filebrowser:
     repo: ghcr.io/gtsteffaniak/filebrowser
-    digest: "sha256:a96c08fd0f3d789131107d603fe82ad72cebe4eb2a40b69519ee4b8b410c00b7"
+    digest: "sha256:eb3733681db8757412632c61a99ad656f0d94ed6781bb2ea114b4d70babab78c"
 secrets:
   - key: traefik_forward_auth_secret
     generate: "openssl rand -hex 32"
